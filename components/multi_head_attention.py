@@ -53,8 +53,6 @@ class MultiHeadAttention(tf.keras.Model):
 
     def call(self, input):
         encoder_data, decoder_data = input
-        print(f"encoder_data: {encoder_data.shape}")
-        print(f"decoder_data: {decoder_data.shape}")
         key = tf.matmul(encoder_data, self.key_matrix)
         value = tf.matmul(encoder_data, self.value_matrix)
         query = tf.matmul(decoder_data, self.query_matrix)

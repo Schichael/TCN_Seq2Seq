@@ -107,7 +107,7 @@ class Decoder(tf.keras.Model):
         out = self.normalization_layers[0](out_tcn + out)
 
         for i in range(self.num_stages - 1):
-            out_tcn = self.tcn_list[i + 1](data_decoder)
+            out_tcn = self.tcn_list[i + 1](out)
             if self.use_residual:
                 out = self.normalization_layers[i + 1](out_tcn + out)
             else:

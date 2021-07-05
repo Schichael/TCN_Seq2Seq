@@ -9,9 +9,7 @@ class MultiHeadAttention(tf.keras.Model):
         value_dim: int,
         num_heads: int = 2,
     ):
-        """Perform multi-headed attention. This works slightly different as in the
-        original paper in the sense that query, key and value are not split before
-        feeding them to the heads.
+        """Perform multi-headed attention.
 
         :param key_dim: dimension of key/query
         :param value_dim: dimension of value

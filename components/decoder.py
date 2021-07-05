@@ -25,7 +25,18 @@ class Decoder(tf.keras.Model):
         use_residual: bool = True,
         **kwargs
     ):
-        """TCN Decoder stage
+        """TCN Decoder
+        The decoder consists of num_stages stages.
+        Each stage begins with a TCN block. It follows a Encoder-Decoder
+        Multi-Headed-Attention layer that connects the output of the encoder
+        with the output of the TCN block. The output of the TCN block and the
+        attention layer are summed and normalized.
+        Optionally, residual connections can be used between the output of the last
+        stage and the output of the TCN block of the next stage.
+        After the last stage, another TCN block is added that generates the output.
+        Note: the output is NOT the prediction. After the decoder, an output stage (
+        e.g. a feed forward NN) still needs to be added to compute the prediction
+
 
         :param num_stages: number of stages
         :param num_filters: number of channels for CNNs

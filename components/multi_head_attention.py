@@ -9,7 +9,7 @@ class MultiHeadAttention(tf.keras.Model):
         value_dim: int,
         num_heads: int = 2,
     ):
-        """Perform multi-headed attention.
+        """Perform multi-headed attention. Here, multiplicative attention is used.
 
         :param key_dim: dimension of key/query
         :param value_dim: dimension of value

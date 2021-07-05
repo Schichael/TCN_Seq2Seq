@@ -21,7 +21,10 @@ class Encoder(tf.keras.Model):
         use_residual: bool = True,
         **kwargs
     ):
-        """TCN Encoder stage
+        """TCN Encoder
+        The encoder consists of num_stages TCN blocks stacked on top of each
+        other.
+        Optionally, residual connections can be used between consecutive TCN stages.
 
         :param num_filters: number of channels for CNNs
         :param kernel_size: kernel size of CNNs

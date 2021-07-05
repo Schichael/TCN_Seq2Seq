@@ -1,6 +1,6 @@
 # TCN_Seq2Seq
 [Work in Progress]  
-Sequence to sequence TCN-based model for time series forecasting.  
+TCN-based sequence-to-sequence model for time series forecasting.  
         Influenced by the Transformer model, it used Multi-Headed  
         Encoder-Decoder-attention to connect encoder and decoder. Instead of  
         Self-attention as used in the Transformer architecture, this model uses  

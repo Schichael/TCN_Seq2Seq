@@ -1,5 +1,9 @@
 # TCN_Seq2Seq
-[Work in Progress]  
+**[Work in Progress]**  
+
+The entire project is written in Python 3.8 using Tensorflow 2.5.0
+
+### TCN-Seq2Seq Model
 TCN-based sequence-to-sequence model for time series forecasting.  
 Influenced by the Transformer model, it uses Multi-Headed Encoder-Decoder-Attention to 
 connect encoder and decoder.  
@@ -37,4 +41,4 @@ The TCN blocks use as many layers as needed to get a connection from first times
 input to last timestep's output. Padding can be set by the user. (usually 'causal' or 'same')
 
 
-The entire project is written in Python 3.8 using Tensorflow 2.5.0
+

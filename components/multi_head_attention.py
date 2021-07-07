@@ -73,5 +73,9 @@ class MultiHeadAttention(tf.keras.Model):
 
     def _calc_attention(self, query, value, key):
         scores = tf.matmul(query, key, transpose_b=True)
-        return tf.linalg.matmul(tf.nn.softmax(scores / tf.math.sqrt(key.shape[-1]),
-                                              axis=1), value)
+        return tf.linalg.matmul(
+            tf.nn.softmax(
+                scores / tf.math.sqrt(tf.cast(key.shape[-1], tf.float32)), axis=1
+            ),
+            value,
+        )

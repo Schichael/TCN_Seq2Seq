@@ -23,7 +23,7 @@ Inputs: [encoder_input, decoder_input]
 The encoder consists of n TCN blocks stacked on top of each other.
 Optionally, residual connections can be used between consecutive TCN blocks.
 
-###Decoder
+### Decoder
 The decoder consists of n stages.
 Each stage begins with a TCN block. It follows an Encoder-Decoder
 Multi-Head-Attention layer (multiplicative attention) that connects the output of the 

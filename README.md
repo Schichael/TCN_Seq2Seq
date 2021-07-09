@@ -10,7 +10,7 @@ connect encoder and decoder.
 Instead of Self-Attention as used in the Transformer architecture, this model uses TCN 
 blocks. Additional positional encoding  is not necessary since a TCN stage performs 
 temporal encoding implicitly.  
-Also, this model does not use auto-correlation in the sense that the t-1th prediction 
+Also, this model does not use autoregression in the sense that the t-1th prediction 
 is not fed as input to compute the t-th prediction. This feature is planned to be 
 implemented in the future.  
 

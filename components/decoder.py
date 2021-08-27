@@ -1,14 +1,16 @@
 import tensorflow as tf
-from tensorflow import keras
 
-from tcn import TCN
-from multi_head_attention import MultiHeadAttention
+# from software.backend.tf_models.multi_head_attention import MultiHeadAttention
+from tensorflow.keras.layers import MultiHeadAttention
+
+# from ..multi_head_attention_autoregressive import MultiHeadAttentionAutoregressive
+from components.tcn import TCN
 
 
 class Decoder(tf.keras.Model):
     def __init__(
         self,
-        num_stages: int,
+        max_seq_len: int,
         num_filters: int,
         kernel_size: int,
         dilation_base: int,
@@ -16,48 +18,45 @@ class Decoder(tf.keras.Model):
         key_size: int,
         value_size: int,
         num_attention_heads: int,
+        output_neurons: [int],
+        num_layers: int,
         activation: str = "elu",
         kernel_initializer: str = "he_normal",
-        padding: str = "causal",
-        weight_norm: bool = False,
         batch_norm: bool = False,
         layer_norm: bool = False,
-        use_residual: bool = True,
-        **kwargs
     ):
-        """TCN Decoder
-        The decoder consists of num_stages stages.
-        Each stage begins with a TCN block. It follows a Encoder-Decoder
-        Multi-Headed-Attention layer that connects the output of the encoder
-        with the output of the TCN block. The output of the TCN block and the
-        attention layer are summed and normalized.
-        Optionally, residual connections can be used between the output of the last
-        stage and the output of the TCN block of the next stage.
-        After the last stage, another TCN block is added that generates the output.
-        Note: the output is NOT the prediction. After the decoder, an output stage (
-        e.g. a feed forward NN) still needs to be added to compute the prediction
+        """TCN Decoder stage
+        The Decoder architecture is as follows:
+        First a TCN stage is used to encoder the decoder input data.
+        After that multi-head cross attention is applied the the TCN output and the
+        encoder output.
+        Then another TCN stage is applied. The input of this TCN stage is a
+        concatenation of the output of the first Decoder-TCN and the output of the
+        cross attention.
+        The last stage is the prediction stage (a block of dense layers) that then
+        makes the final prediction.
 
 
-        :param num_stages: number of stages
+        :param max_seq_len: maximum sequence length that is used to compute the
+        number of layers
         :param num_filters: number of channels for CNNs
         :param kernel_size: kernel size of CNNs
-        :param dilation_base: dilitation base
+        :param dilation_base: dilation base
         :param dropout_rate: dropout rate
         :param key_size: dimensionality of key/query
         :param value_size: dimensionality of value
         :param num_attention_heads: Number of attention heads to be used
+        :param output_neurons: list of output neurons. Each entry is a new layer in
+        the output stage.
+        :param num_layers: number of layer in the TCNs. If None, the needed
+        number of layers is computed automatically based on the sequence lenghts
         :param activation: the activation function used throughout the decoder
         :param kernel_initializer: the mode how the kernels are initialized
-        :param padding: padding, usually' causal' or 'same'
-        :param weight_norm: if weight normalization shall be used
         :param batch_norm: if batch normalization shall be used
         :param layer_norm: if layer normalization shall be used
-        :param use_residual: if residual connections shall be used between stacks. (
-        Note: In the TCN-layer, residual connections are always used)
-        :param kwargs:
         """
-        super(Decoder, self).__init__(kwargs)
-        self.num_stages = num_stages
+        super(Decoder, self).__init__()
+        self.max_seq_len = max_seq_len
         self.num_filters = num_filters
         self.kernel_size = kernel_size
         self.dilation_base = dilation_base
@@ -65,65 +64,75 @@ class Decoder(tf.keras.Model):
         self.key_size = key_size
         self.value_size = value_size
         self.num_attention_heads = num_attention_heads
+        self.output_neurons = output_neurons
+        self.num_layers = num_layers
         self.activation = activation
         self.kernel_initializer = kernel_initializer
-        self.padding = padding
-        self.weight_norm = weight_norm
         self.batch_norm = batch_norm
         self.layer_norm = layer_norm
-        self.use_residual = use_residual
 
-        self.tcn_list = []
-        for i in range(num_stages + 1):
-            self.tcn_list.append(
-                TCN(
-                    num_stages=2,
-                    num_filters=self.num_filters,
-                    kernel_size=self.kernel_size,
-                    dilation_base=self.dilation_base,
-                    dropout_rate=self.dropout_rate,
-                    activation=self.activation,
-                    final_activation=self.activation,
-                    kernel_initializer=self.kernel_initializer,
-                    padding=self.padding,
-                    weight_norm=self.weight_norm,
-                    batch_norm=self.batch_norm,
-                    layer_norm=self.layer_norm,
-                    return_sequence=True,
-                )
-            )
-        self.normalization_layers = [keras.layers.LayerNormalization(epsilon=1e-6)]
-        for i in range(num_stages - 1):
-            self.normalization_layers.append(
-                keras.layers.LayerNormalization(epsilon=1e-6)
-            )
-            self.normalization_layers.append(
-                keras.layers.LayerNormalization(epsilon=1e-6)
-            )
+        self.tcn1 = TCN(
+            max_seq_len=self.max_seq_len,
+            num_stages=2,
+            num_filters=self.num_filters,
+            kernel_size=self.kernel_size,
+            dilation_base=self.dilation_base,
+            dropout_rate=self.dropout_rate,
+            activation=self.activation,
+            final_activation=self.activation,
+            kernel_initializer=self.kernel_initializer,
+            padding="causal",
+            batch_norm=self.batch_norm,
+            layer_norm=self.layer_norm,
+            return_sequence=True,
+            num_layers=num_layers,
+        )
+        self.tcn2 = TCN(
+            max_seq_len=self.max_seq_len,
+            num_stages=2,
+            num_filters=self.num_filters,
+            kernel_size=self.kernel_size,
+            dilation_base=self.dilation_base,
+            dropout_rate=self.dropout_rate,
+            activation=self.activation,
+            final_activation=self.activation,
+            kernel_initializer=self.kernel_initializer,
+            padding="causal",
+            batch_norm=self.batch_norm,
+            layer_norm=self.layer_norm,
+            return_sequence=True,
+            num_layers=num_layers,
+        )
 
-        self.attention_list = []
-        for i in range(num_stages):
-            self.attention_list.append(
-                MultiHeadAttention(
-                    key_dim=self.key_size,
-                    value_dim=self.value_size,
-                    num_heads=self.num_attention_heads,
-                )
-            )
+        # Cross attention
+        self.attention = MultiHeadAttention(
+            key_dim=self.key_size,
+            value_dim=self.value_size,
+            num_heads=self.num_attention_heads,
+            output_shape=4,
+        )
 
-    def call(self, inputs):
+        # layers for the final prediction stage
+        self.output_layers = []
+
+        for i, neurons in enumerate(self.output_neurons):
+            layer_dense = tf.keras.layers.Dense(
+                neurons,
+                activation=self.activation,
+                kernel_initializer=self.kernel_initializer,
+            )
+            self.output_layers.append(layer_dense)
+        # last output layer
+        self.output_layers.append(tf.keras.layers.Dense(1))
+
+    @tf.function
+    def call(self, inputs, training=None):
         data_encoder, data_decoder = inputs
-        out_tcn = self.tcn_list[0](data_decoder)
-        out = self.attention_list[0]([data_encoder, out_tcn])
-        out = self.normalization_layers[0](out_tcn + out)
+        out_tcn = self.tcn1(data_decoder, training=training)
+        out_attention = self.attention(out_tcn, data_encoder, training=training)
+        out = tf.concat([out_tcn, out_attention], -1)
 
-        for i in range(self.num_stages - 1):
-            out_tcn = self.tcn_list[i + 1](out)
-            if self.use_residual:
-                out = self.normalization_layers[i + 1](out_tcn + out)
-            else:
-                out = self.normalization_layers[i + 1](out_tcn)
-            out_att = self.attention_list[i + 1]([data_encoder, out])
-            out = self.normalization_layers[i + 2](out_att + out)
-        out = self.tcn_list[-1](out)
+        out = self.tcn2(out, training=training)
+        for layer in self.output_layers:
+            out = layer(out, training=training)
         return out

@@ -6,7 +6,7 @@ from tensorflow.keras.layers import (
     Activation,
     LayerNormalization,
     BatchNormalization,
-    SpatialDropout1D,
+    Dropout,
     Lambda,
 )
 from tensorflow_addons.layers import WeightNormalization
@@ -83,16 +83,16 @@ class ResidualBlock(tf.keras.layers.Layer):
 
             if self.batch_norm:
                 self.layers.append(BatchNormalization())
-            # in original elif is used. Not sure why.
-            if self.layer_norm:
+            elif self.layer_norm:
                 self.layers.append(LayerNormalization())
 
-            self.layers.append(Activation(self.activation))
-            self.layers.append(Activation(SpatialDropout1D(rate=self.dropout_rate)))
+            if k < self.num_stages - 1:
+                self.layers.append(Activation(self.activation))
+                self.layers.append(Dropout(rate=self.dropout_rate))
 
     def build(self, input_shape):
 
-        # match input and output shapes
+        # Match input and output shapes
         if self.num_filters != input_shape[-1]:
             name = "matching_conv1D"
             self.shape_match_conv = Conv1D(
@@ -105,11 +105,10 @@ class ResidualBlock(tf.keras.layers.Layer):
         else:
             self.shape_match_conv = Lambda(lambda x: x)
 
-    def call(self, inputs):
-
+    def call(self, inputs, training=None):
         x = inputs
         for layer in self.layers:
-            x = layer(x)
+            x = layer(x, training=training)
         x2 = self.shape_match_conv(inputs)
         res_x = layers.add([x2, x])
         res_act_x = self.final_activation(res_x)
@@ -119,11 +118,13 @@ class ResidualBlock(tf.keras.layers.Layer):
 class TCN(Model):
     def __init__(
         self,
+        max_seq_len: int,
         num_stages: int,
         num_filters: int,
         kernel_size: int,
         dilation_base: int,
         dropout_rate: float,
+        num_layers: int = None,
         activation: str = "relu",
         final_activation: str = "relu",
         kernel_initializer: str = "he_normal",
@@ -132,18 +133,20 @@ class TCN(Model):
         batch_norm: bool = False,
         layer_norm: bool = False,
         return_sequence=False,
-        **kwargs,
     ):
         """TCN stage. It uses as many layers as needed to get a connection from first
-        input to last output.
+        input to last output or num_layers if specified.
 
+
+        :param max_seq_len: maximum sequence length that is used to compute the
+        number of layers
         :param num_stages: number of stages in the residual blocks
         :param num_filters: number of channels for CNNs
         :param kernel_size: kernel size of CNNs
-        :param dilation_base: dilitation base
+        :param dilation_base: dilation base
         :param dropout_rate: dropout rate
         :param activation: activation function used for CNNs
-        :param final_activation: activation function uised at hte end of each
+        :param final_activation: activation function used at hte end of each
         residual block
         :param kernel_initializer: the mode how the kernels are initialized
         :param padding: padding, usually' causal' or 'same'
@@ -152,9 +155,9 @@ class TCN(Model):
         :param layer_norm: if layer normalization shall be used
         :param return_sequence: if the output sequence shall be returned or just the
         last output
-        :param kwargs: ...
         """
-        super(TCN, self).__init__(**kwargs)
+        super(TCN, self).__init__()
+        self.max_seq_len = max_seq_len
         self.num_stages = num_stages
         self.num_filters = num_filters
         self.kernel_size = kernel_size
@@ -167,7 +170,7 @@ class TCN(Model):
         self.weight_norm = weight_norm
         self.batch_norm = batch_norm
         self.layer_norm = layer_norm
-        self.num_layers = None
+        self.num_layers = num_layers
 
         self.res_block_list = []
         self.input_chunk_length = None
@@ -184,19 +187,18 @@ class TCN(Model):
         ) / (self.dilation_base - 1)
 
     def build(self, input_shape):
-
-        self.input_chunk_length = input_shape[1]
-
-        self.num_layers = math.ceil(
-            math.log(
-                (self.input_chunk_length - 1)
-                * (self.dilation_base - 1)
-                / (self.kernel_size - 1)
-                / self.num_stages
-                + 1,
-                self.dilation_base,
+        if self.num_layers is None:
+            self.num_layers = math.ceil(
+                math.log(
+                    (self.max_seq_len - 1)
+                    * (self.dilation_base - 1)
+                    / (self.kernel_size - 1)
+                    / self.num_stages
+                    + 1,
+                    self.dilation_base,
+                )
             )
-        )
+
         for i in range(self.num_layers):
             dilation_rate = self.dilation_base ** i
             self.dilation_rates.append(dilation_rate)
@@ -205,7 +207,7 @@ class TCN(Model):
                     self.num_stages,
                     self.num_filters,
                     self.kernel_size,
-                    self.dilation_base,
+                    dilation_rate,
                     self.dropout_rate,
                     self.activation,
                     self.final_activation,
@@ -217,15 +219,14 @@ class TCN(Model):
                 )
             )
 
-    def call(self, inputs):
+    @tf.function
+    def call(self, inputs, training=None):
 
         x = inputs
         for res_block in self.res_block_list:
-            x = res_block(x)
+            x = res_block(x, training=training)
         if self.return_sequence:
             return x
         else:
             x_last = x[:, -1, :]
-            # x_last = tf.slice(x, [0, x.shape[1] - 1, 0], [-1, 1, -1])
-            # print(x.shape)
             return x_last

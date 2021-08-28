@@ -31,4 +31,4 @@ The timesteps of the decoder inputs correspond to the timesteps of the made pred
 Inputs: [encoder_input, decoder_input]
 
 
-
+Note: With the commit from 8/27/2021 the architecture was changed

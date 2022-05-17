@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-from components.tcn import TCN
+from src.tf_models.tcn import TCN
 
 
 class Encoder(tf.keras.Model):

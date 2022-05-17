@@ -1,10 +1,6 @@
 import tensorflow as tf
-
-# from software.backend.tf_models.multi_head_attention import MultiHeadAttention
+from src.tf_models.tcn import TCN
 from tensorflow.keras.layers import MultiHeadAttention
-
-# from ..multi_head_attention_autoregressive import MultiHeadAttentionAutoregressive
-from components.tcn import TCN
 
 
 class Decoder(tf.keras.Model):

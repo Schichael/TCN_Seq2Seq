@@ -1,7 +1,7 @@
 import tensorflow as tf
 
-from components.decoder import Decoder
-from components.encoder import Encoder
+from .decoder import Decoder
+from .encoder import Encoder
 
 
 class TCN_Seq2Seq(tf.keras.Model):
@@ -24,7 +24,7 @@ class TCN_Seq2Seq(tf.keras.Model):
         """Model that uses a TCN as encoder and a TCN based decoder.
 
         To get further information about the encoder and decoder architecture,
-        read the docstrings of encoder.py and decoder.py
+        read the docstrings of those.
 
         :param num_filters: number of filters / channels used. Also defines the
         number of hidden state units of the decoder GRU

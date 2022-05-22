@@ -1,5 +1,5 @@
 import tensorflow as tf
-from src.tf_models.tcn import TCN
+from tcn_sequence_models.tf_models.tcn import TCN
 from tensorflow.keras.layers import MultiHeadAttention
 
 

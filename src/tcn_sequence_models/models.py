@@ -9,12 +9,13 @@ from sklearn import metrics
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import EarlyStopping
 
-from src.tf_models.tf_TCN_GRU import tcn_gru_attention_model
-from src.tf_models.tf_TCN_TCN import tcn_seq2seq
-from src.tf_models.tf_TCN_classifier.tcn_classifier import TCNClassifier
-from src.tf_models.tf_TCN_regressor.tcn_regressor import TCNRegressor
+from tcn_sequence_models.tf_models.tf_TCN_GRU import tcn_gru_attention_model
+from tcn_sequence_models.tf_models.tf_TCN_TCN import tcn_seq2seq
+from tcn_sequence_models.tf_models.tf_TCN_classifier.tcn_classifier import TCNClassifier
+from tcn_sequence_models.tf_models.tf_TCN_regressor.tcn_regressor import \
+    TCNRegressor
 
-from src.utils.scaling import inverse_scale_sequences
+from tcn_sequence_models.utils.scaling import inverse_scale_sequences
 
 
 class BaseModel(ABC):

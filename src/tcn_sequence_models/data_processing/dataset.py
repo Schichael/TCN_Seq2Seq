@@ -7,14 +7,10 @@ import os
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path().cwd() / Path("..")) + str(Path("/")))
-sys.path.insert(0, str(Path().cwd() / Path("..//..")) + str(Path("/")))
-try:
-    from src.data_processing import preprocessing, gen_sequences
-except:
-    from . import preprocessing, gen_sequences
+sys.path.insert(0, str(Path().cwd() / Path("../..")) + str(Path("/")))
+sys.path.insert(0, str(Path().cwd() / Path("../../..")) + str(Path("/")))
 
-from src import utils
+from tcn_sequence_models.data_processing import gen_sequences, preprocessing
 
 
 class DataSet:
@@ -167,7 +163,7 @@ class DataSet:
         self.smoothing_operations = smoothing_operations
 
         # scale X-features
-        self.df_processed, self.scaler_X = utils.scaling.scale_input_data(
+        self.df_processed, self.scaler_X = src.tcn_sequence_models.utils.scaling.scale_input_data(
             self.df_processed,
             features_input_encoder,
             features_input_decoder,
@@ -176,7 +172,7 @@ class DataSet:
         )
 
         # scale target
-        self.df_processed, self.scaler_y = utils.scaling.scale_target_data(
+        self.df_processed, self.scaler_y = src.tcn_sequence_models.utils.scaling.scale_target_data(
             self.df_processed, [feature_target], train_ratio=split_ratio
         )
 
@@ -264,7 +260,7 @@ class DataSet:
                 )
 
         # scale X-features
-        self.df_processed, _ = utils.scaling.scale_input_data(
+        self.df_processed, _ = src.tcn_sequence_models.utils.scaling.scale_input_data(
             self.df_processed,
             self.features_input_encoder,
             self.features_input_decoder,
@@ -273,7 +269,7 @@ class DataSet:
         )
 
         # scale target
-        self.df_processed, _ = utils.scaling.scale_target_data(
+        self.df_processed, _ = src.tcn_sequence_models.utils.scaling.scale_target_data(
             self.df_processed,
             [self.feature_target],
             scaler=self.scaler_y,

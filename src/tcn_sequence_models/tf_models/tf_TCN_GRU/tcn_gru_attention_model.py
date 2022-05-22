@@ -1,7 +1,7 @@
 import tensorflow as tf
 
-from src.tf_models.tf_TCN_GRU.decoder import Decoder
-from src.tf_models.tf_TCN_GRU.encoder import Encoder
+from tcn_sequence_models.tf_models.tf_TCN_GRU.decoder import Decoder
+from tcn_sequence_models.tf_models.tf_TCN_GRU.encoder import Encoder
 
 
 class TCN_GRU_ATTENTION(tf.keras.Model):

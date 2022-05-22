@@ -241,3 +241,7 @@ def smooth_rolling_window(df, features, window_size=5, method="mean", delete_nan
     if delete_nans:
         df_copy = df_copy[window_size - 1 :]
     return df_copy
+
+
+def one_hot_encoding(df: pd.DataFrame):
+    pass

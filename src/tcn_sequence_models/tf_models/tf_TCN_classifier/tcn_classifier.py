@@ -3,7 +3,7 @@ from typing import List
 import tensorflow as tf
 from tensorflow import keras
 
-from src.tf_models.tcn import TCN
+from tcn_sequence_models.tf_models.tcn import TCN
 
 
 class TCNClassifier(tf.keras.Model):

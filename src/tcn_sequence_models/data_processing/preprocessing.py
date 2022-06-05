@@ -1,13 +1,65 @@
+from typing import Optional, List
+
+import numpy as np
 import pandas as pd
 
-# import holidays
 
+class OneHotEncoder:
+    """Class to perform one-hot-encoding"""
+    def __init__(self, min_rel_occurrence: Optional[float] = None):
+        self.min_rel_occurrence = min_rel_occurrence
+        self.valid_values = {}
+
+    def fit(self, df: pd.DataFrame):
+        # Get categorical columns
+        categorical_cols = df.select_dtypes(include=['object', 'category']).columns.tolist()
+        # Select the values that have enough occurrences for each categorical column
+        for col in categorical_cols:
+            if self.min_rel_occurrence is None:
+                unique_vals = df[col].unique()
+                self.valid_values[col] = unique_vals
+            else:
+                rel_occurrences = df[col].value_counts(normalize=True)
+                print(rel_occurrences)
+                high_occurrences = rel_occurrences[rel_occurrences>=self
+                    .min_rel_occurrence].index.tolist()
+                print(high_occurrences)
+                self.valid_values[col] = high_occurrences
+
+    def transform(self, df: pd.DataFrame, inplace: bool = False, drop_unseen:
+    bool=True):
+        if not inplace:
+           df = df.copy()
+        for col_name, values in self.valid_values.items():
+            # Do not transform columns that haven't be seen during fitting. If
+            # drop_unseen, drop them.
+            if col_name not in df.columns:
+                if drop_unseen:
+                    df.drop(col_name, inplace=True)
+                else:
+                    continue
+
+            # Remove the values that have not been seen during fitting or had too few
+            # occurrences (Set to NaN)
+            df.loc[~df[col_name].isin(values), col_name] = np.nan
+            # Perform one-hot-encoding
+            for val in values:
+                new_col_name = col_name + "=" + val
+                rows_with_val = np.where(df[col_name] == val)[0]
+                df[new_col_name] = 0
+                df.loc[rows_with_val, new_col_name] = 1
+            # Remove original column
+            df.drop(col_name, axis=1, inplace=True)
+        return df
 
 def compute_temporal_encoding(df, feature, mode):
     """Computes a temporal encoding
 
     Example: mode="months": the average value of the feature column is computed for
     each month, which is then the encoding for each month.
+    Encodings should only be used if the complete spectrum is covered in the training
+    set. E.g. when mode = 'months', the training data should contain all months that
+    will also be during inference / in the test data set.
 
     :param df: Dataframe
     :param feature: The feature that is used for temporal encoding
@@ -195,24 +247,6 @@ def fill_gaps(df, method="ffill"):
     return df.fillna(method=method)
 
 
-def remove_inactive_days(df):
-    """Removes the days where "MeteoViva_Switch - MeteoViva inactive (Logging)" == 1
-    or MeteoViva_Schalter - MeteoViva_aktiv (Logging) == 0
-
-    :param df: input DataFrame
-    :return: Pandas DataFrame with removed days
-    """
-    df_copy = df.copy(deep=True)
-    datetime_inactive = df_copy[
-        (df_copy["MeteoViva_Switch - MeteoViva inactive (Logging)"] == 1)
-        | (df_copy["MeteoViva_Schalter - MeteoViva_aktiv (Logging)"] == 0)
-    ]["date / time"]
-    days_inactive = datetime_inactive.dt.date.unique()
-    df_inactive_removed = df_copy[~df_copy["date / time"].dt.date.isin(days_inactive)]
-
-    return df_inactive_removed
-
-
 def smooth_rolling_window(df, features, window_size=5, method="mean", delete_nans=True):
     """filters the features in the DataFrame using a rolling window approach. For
     each datapoint, the n=window_size last datapoints are used to calculate the new
@@ -243,5 +277,3 @@ def smooth_rolling_window(df, features, window_size=5, method="mean", delete_nan
     return df_copy
 
 
-def one_hot_encoding(df: pd.DataFrame):
-    pass

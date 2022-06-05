@@ -1,11 +1,14 @@
 import json
 import pickle
+from typing import Optional, List
 
 import pandas as pd
 import os
 
 import sys
 from pathlib import Path
+from tcn_sequence_models import utils
+from tcn_sequence_models.data_processing.preprocessing import OneHotEncoder
 
 sys.path.insert(0, str(Path().cwd() / Path("../..")) + str(Path("/")))
 sys.path.insert(0, str(Path().cwd() / Path("../../..")) + str(Path("/")))
@@ -34,12 +37,12 @@ class DataSet:
         self.input_seq_len = None
         self.output_seq_len = None
         self.temporal_encodings = []
-        self.smoothing_operations = None
         self.scaler_X = None
         self.scaler_y = None
         self.X = None
         self.y = None
         self.autoregressive = False
+        self.one_hot_encoder = None
 
     def load_data(self, path, file_type="xlsx"):
         """Load the raw data from a xlsx or csv file
@@ -62,25 +65,24 @@ class DataSet:
 
     def process(
         self,
-        features_input_encoder: [str],
-        features_input_decoder: [str],
+        features_input_encoder: List[str],
+        features_input_decoder: List[str],
         feature_target: str,
         input_seq_len: int,
         output_seq_len: int,
-        split_ratio: float = None,
+        split_ratio: Optional[float] = None,
         split_date=None,
-        smoothing_operations=None,
-        temporal_encoding_modes: [str] = None,
+        temporal_encoding_modes: Optional[List[str]] = None,
+        min_rel_occurrence: Optional[float] = None,
         autoregressiive: bool = False,
     ):
         """Process the raw data
 
         This function executed the following steps:
-        1. Remove days from the dataset where MeteoViva is inactive
-        2. Fill NaNs by using the last observed value in the column
-        3. Add temporal encodings as defined in the temporal_encoding_modes parameter
-        4. Perform smoothing as defined in the smoothing_operations parameter
-        5. Scale the features that are defined in features_input_encoder,
+        1. Fill NaNs by using the last observed value in the column
+        2. Add temporal encodings as defined in the temporal_encoding_modes parameter
+        3. one-hot-encode categorical data
+        4. Scale the features that are defined in features_input_encoder,
         features_input_decoder and feature_target using a StandardScaler. The
         scalers for the input features and target feature are saved in the scaler_X
         and scaler_y attributes, respectively.
@@ -95,11 +97,10 @@ class DataSet:
         :param output_seq_len: output (decoder and target) sequence length
         :param split_ratio: the ratio with which to split into train and test set
         :param split_date: the date with which to split into train and test set
-        :param smoothing_operations: list of tuples that define the smoothing
-        operations of the form: [(method, window_size, features)]. method can be
-        'median' or 'mean'. A rolling window is used for smoothing
         :param temporal_encoding_modes: list of the temporal encodings to apply.
         Possible encodings: 'hours', 'months', 'seasons', 'weekdays', 'holidays'
+        :param min_rel_occurrence: minimum relative number of occurrences of
+        categorical column values to be used for one-hot-encoding.
         :param autoregressiive: if True, the X attribute gets the last target value
         as third element. This last element can be used as a first input of a decoder
         that reuses past predictions (e.g. when using an RNN as decoder)
@@ -116,9 +117,7 @@ class DataSet:
         self.feature_target = feature_target
         self.input_seq_len = input_seq_len
         self.output_seq_len = output_seq_len
-
-        # Remove inactive days
-        self.df_processed = preprocessing.remove_inactive_days(self.df_raw)
+        self.min_rel_occurrence = min_rel_occurrence
 
         # Fill gaps
         self.df_processed = preprocessing.fill_gaps(self.df_processed)
@@ -150,20 +149,13 @@ class DataSet:
 
             self.temporal_encodings.append((temp_enc, temporal_encoding))
 
-        # Add smoothing
-        if smoothing_operations is not None:
-            for smoothing_op in smoothing_operations:
-                self.df_processed = preprocessing.smooth_rolling_window(
-                    self.df_processed,
-                    features=smoothing_op[2],
-                    window_size=smoothing_op[1],
-                    method=smoothing_op[0],
-                    delete_nans=True,
-                )
-        self.smoothing_operations = smoothing_operations
+        # One-hot-encoding
+        self.one_hot_encoder = OneHotEncoder(min_rel_occurrence=min_rel_occurrence)
+        self.one_hot_encoder.fit(self.df_processed)
+        self.one_hot_encoder.transform(df=self.df_processed, inplace=True)
 
         # scale X-features
-        self.df_processed, self.scaler_X = src.tcn_sequence_models.utils.scaling.scale_input_data(
+        self.df_processed, self.scaler_X = utils.scaling.scale_input_data(
             self.df_processed,
             features_input_encoder,
             features_input_decoder,
@@ -172,7 +164,7 @@ class DataSet:
         )
 
         # scale target
-        self.df_processed, self.scaler_y = src.tcn_sequence_models.utils.scaling.scale_target_data(
+        self.df_processed, self.scaler_y = utils.scaling.scale_target_data(
             self.df_processed, [feature_target], train_ratio=split_ratio
         )
 
@@ -231,9 +223,6 @@ class DataSet:
         # Load config
         self.load_dataset_config(config_path)
 
-        # Remove inactive days
-        self.df_processed = preprocessing.remove_inactive_days(self.df_raw)
-
         # Fill gaps
         self.df_processed = preprocessing.fill_gaps(self.df_processed)
 
@@ -248,19 +237,11 @@ class DataSet:
             self.features_input_encoder.append("temporal_encoding_" + temp_enc[0])
             self.features_input_decoder.append("temporal_encoding_" + temp_enc[0])
 
-        # Add smoothing
-        if self.smoothing_operations:
-            for smoothing_op in self.smoothing_operations:
-                self.df_processed = preprocessing.smooth_rolling_window(
-                    self.df_processed,
-                    features=smoothing_op[2],
-                    window_size=smoothing_op[1],
-                    method=smoothing_op[0],
-                    delete_nans=True,
-                )
+        # one-hot-encoding
+        self.one_hot_encoder.transform(self.df_processed)
 
         # scale X-features
-        self.df_processed, _ = src.tcn_sequence_models.utils.scaling.scale_input_data(
+        self.df_processed, _ = utils.scaling.scale_input_data(
             self.df_processed,
             self.features_input_encoder,
             self.features_input_decoder,
@@ -269,7 +250,7 @@ class DataSet:
         )
 
         # scale target
-        self.df_processed, _ = src.tcn_sequence_models.utils.scaling.scale_target_data(
+        self.df_processed, _ = utils.scaling.scale_target_data(
             self.df_processed,
             [self.feature_target],
             scaler=self.scaler_y,
@@ -310,15 +291,18 @@ class DataSet:
         config_dict["features_input_decoder"] = self.features_input_decoder
         config_dict["feature_target"] = self.feature_target
         config_dict["temporal_encoding"] = self.temporal_encodings
-        config_dict["smoothing_operations"] = self.smoothing_operations
         config_dict["autoregressive"] = self.autoregressive
         config_dict["input_seq_len"] = self.input_seq_len
         config_dict["output_seq_len"] = self.output_seq_len
 
         json.dump(config_dict, open(config_file_dir, "w"))
 
-        # Save scalers
+        # Save OneHotEncoder
+        ohe_dir = os.path.join(save_path, "OneHotEncoder.pkl")
+        with open(ohe_dir, "wb") as f:
+            pickle.dump(self.one_hot_encoder, f, pickle.HIGHEST_PROTOCOL)
 
+        # Save scalers
         scaler_X_dir = os.path.join(save_path, "scaler_X.pkl")
         with open(scaler_X_dir, "wb") as f:
             pickle.dump(self.scaler_X, f, pickle.HIGHEST_PROTOCOL)
@@ -342,11 +326,13 @@ class DataSet:
         self.features_input_decoder = config_dict["features_input_decoder"]
         self.feature_target = config_dict["feature_target"]
         self.temporal_encodings = config_dict["temporal_encoding"]
-        self.smoothing_operations = config_dict["smoothing_operations"]
         self.autoregressive = config_dict["autoregressive"]
         self.input_seq_len = config_dict["input_seq_len"]
         self.output_seq_len = config_dict["output_seq_len"]
 
+        ohe_dir = os.path.join(load_path, "OneHotEncoder.pkl")
+        with open(ohe_dir, "rb") as f:
+            self.one_hot_encoder = pickle.load(f)
         scaler_X_dir = os.path.join(load_path, "scaler_X.pkl")
         scaler_y_dir = os.path.join(load_path, "scaler_y.pkl")
         with open(scaler_X_dir, "rb") as f:

@@ -121,14 +121,69 @@ class Decoder(tf.keras.Model):
         # last output layer
         self.output_layers.append(tf.keras.layers.Dense(1))
 
+
     @tf.function
-    def call(self, inputs, training=None):
-        data_encoder, data_decoder = inputs
-        out_tcn = self.tcn1(data_decoder, training=training)
-        out_attention = self.attention(out_tcn, data_encoder, training=training)
+    def call(self, inputs, training=True):
+        if training:
+            return self._training_call(inputs)
+        else:
+            return self._inference_call(inputs)
+
+    #@tf.function
+    def _training_call(self, inputs):
+        data_encoder, data_decoder, y_shifted = inputs
+        y_shifted = tf.expand_dims(y_shifted, -1)
+        data_decoder = tf.concat([data_decoder, y_shifted], -1)
+        out_tcn = self.tcn1(data_decoder, training=True)
+        out_attention = self.attention(out_tcn, data_encoder, training=True)
         out = tf.concat([out_tcn, out_attention], -1)
 
-        out = self.tcn2(out, training=training)
+        out = self.tcn2(out, training=True)
         for layer in self.output_layers:
-            out = layer(out, training=training)
+            out = layer(out, training=True)
         return out
+
+    def _inference_call(self, inputs):
+        data_encoder, data_decoder, last_y = inputs
+        target_len = data_decoder.shape[1]
+        last_y_reshaped = tf.reshape(last_y, [-1, 1, 1])
+        predictions = None
+
+        #last_prediction[:,0,0] = last_y
+        data_decoder_curr = tf.concat([data_decoder[:,:1,:], last_y_reshaped], -1)
+        for i in range(target_len):
+            print(f"data_decoder_curr: {data_decoder_curr}")
+            out_tcn = self.tcn1(data_decoder_curr, training=False)
+            out_attention = self.attention(out_tcn, data_encoder, training=True)
+            out = tf.concat([out_tcn, out_attention], -1)
+
+            out = self.tcn2(out, training=False)
+            for layer in self.output_layers:
+                out = layer(out, training=False)
+
+            # Add prediction to the prediction tensor
+            if predictions is None:
+                predictions = out[:, -1,:]
+            else:
+                predictions = tf.concat([predictions, out[:, -1, :]], 1)
+            if i == target_len -1:
+                continue
+            print(f"i:{i}")
+            print(f"out: {out.shape}")
+            #prediction = out[:,i:i+1,:]
+            #prediction = tf.expand_dims(out[:, i], -1)
+            #prediction_reshaped = tf.reshape(prediction, [-1, 1, 1])
+            #last_predictions = tf.concat([last_predictions, prediction_reshaped],
+            #                             acis=-1)
+            last_predictions = tf.concat([last_y_reshaped, out], axis=1)
+            #new_timestep = tf.concat([data_decoder[:,i+1:i+2,:],prediction],
+            #                         axis=2)
+            #last_predictions = tf.reshape(last_predictions, [-1,
+            #                                                 last_predictions.shape[
+            #                              -1], 1])
+            data_decoder_curr = tf.concat([data_decoder[:,:i+2,:], last_predictions],
+                                         axis=-1)
+
+
+
+        return predictions

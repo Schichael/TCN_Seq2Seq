@@ -12,8 +12,7 @@ from tensorflow.keras.callbacks import EarlyStopping
 from tcn_sequence_models.tf_models.tf_TCN_GRU import tcn_gru_attention_model
 from tcn_sequence_models.tf_models.tf_TCN_TCN import tcn_seq2seq
 from tcn_sequence_models.tf_models.tf_TCN_classifier.tcn_classifier import TCNClassifier
-from tcn_sequence_models.tf_models.tf_TCN_regressor.tcn_regressor import \
-    TCNRegressor
+from tcn_sequence_models.tf_models.tf_TCN_regressor.tcn_regressor import TCNRegressor
 
 from tcn_sequence_models.utils.scaling import inverse_scale_sequences
 

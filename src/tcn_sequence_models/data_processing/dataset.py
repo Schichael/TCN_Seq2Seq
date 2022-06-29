@@ -8,7 +8,7 @@ import os
 import sys
 from pathlib import Path
 from tcn_sequence_models import utils
-from tcn_sequence_models.data_processing.preprocessing import OneHotEncoder
+from tcn_sequence_models.data_processing.preprocessing import OneHotEncoder, NaNHandler
 
 sys.path.insert(0, str(Path().cwd() / Path("../..")) + str(Path("/")))
 sys.path.insert(0, str(Path().cwd() / Path("../../..")) + str(Path("/")))
@@ -17,7 +17,7 @@ from tcn_sequence_models.data_processing import gen_sequences, preprocessing
 
 
 class DataSet:
-    def __init__(self):
+    def __init__(self, df: pd.DataFrame):
         """Dataset class to handle loading and preparing data for the models
 
         Steps to load and process a dataset to make it ready for the models
@@ -29,7 +29,7 @@ class DataSet:
 
         """
 
-        self.df_raw = None
+        self.df_raw = df
         self.df_processed = None
         self.features_input_encoder = None
         self.features_input_decoder = None
@@ -42,7 +42,9 @@ class DataSet:
         self.X = None
         self.y = None
         self.autoregressive = False
+        self.nan_handler = None
         self.one_hot_encoder = None
+
 
     def load_data(self, path, file_type="xlsx"):
         """Load the raw data from a xlsx or csv file
@@ -65,6 +67,7 @@ class DataSet:
 
     def process(
         self,
+        time_col: str,
         features_input_encoder: List[str],
         features_input_decoder: List[str],
         feature_target: str,
@@ -74,6 +77,7 @@ class DataSet:
         split_date=None,
         temporal_encoding_modes: Optional[List[str]] = None,
         min_rel_occurrence: Optional[float] = None,
+        min_rel_non_nan: Optional[float] = None,
         autoregressiive: bool = False,
     ):
         """Process the raw data
@@ -101,6 +105,9 @@ class DataSet:
         Possible encodings: 'hours', 'months', 'seasons', 'weekdays', 'holidays'
         :param min_rel_occurrence: minimum relative number of occurrences of
         categorical column values to be used for one-hot-encoding.
+        :param min_rel_non_nan: minimum relative number of non-NaN occurrences in a
+        column to still be used. If a column has too many NaN values, the whole
+        column is removed.
         :param autoregressiive: if True, the X attribute gets the last target value
         as third element. This last element can be used as a first input of a decoder
         that reuses past predictions (e.g. when using an RNN as decoder)
@@ -110,7 +117,8 @@ class DataSet:
         assert split_ratio is not None or split_date is not None, (
             "split_ratio or " "split_date must be " "not None "
         )
-
+        self.time_col = time_col
+        self.df_processed = self.df_raw.copy()
         self.autoregressive = autoregressiive
         self.features_input_encoder = features_input_encoder
         self.features_input_decoder = features_input_decoder
@@ -118,9 +126,6 @@ class DataSet:
         self.input_seq_len = input_seq_len
         self.output_seq_len = output_seq_len
         self.min_rel_occurrence = min_rel_occurrence
-
-        # Fill gaps
-        self.df_processed = preprocessing.fill_gaps(self.df_processed)
 
         # compute split ratio if from split_date
         if split_date is not None:
@@ -136,6 +141,7 @@ class DataSet:
             print(temp_enc)
             self.df_processed, temporal_encoding = preprocessing.add_temporal_encoding(
                 self.df_processed,
+                self.time_col,
                 split_ratio,
                 feature=feature_target,
                 mode=temp_enc,
@@ -148,6 +154,10 @@ class DataSet:
             ]
 
             self.temporal_encodings.append((temp_enc, temporal_encoding))
+        # NaN handling
+        self.nan_handler = NaNHandler(min_rel_non_nan=min_rel_non_nan)
+        self.nan_handler.fit(self.df_processed)
+        self.nan_handler.transform(self.df_processed, inplace=True)
 
         # One-hot-encoding
         self.one_hot_encoder = OneHotEncoder(min_rel_occurrence=min_rel_occurrence)
@@ -172,7 +182,8 @@ class DataSet:
         self.df_processed = self.df_processed.reset_index(drop=True)
 
         # Create sequences
-        (X_encoder, X_decoder, y, y_last) = gen_sequences.extract_sequences(
+        (X_encoder, X_decoder, y, y_shifted, y_last) = \
+            gen_sequences.extract_sequences_encoder_decoder(
             self.df_processed,
             features_input_encoder,
             features_input_decoder,
@@ -183,10 +194,15 @@ class DataSet:
             downsampling_ratio_decoder=1,
         )
 
-        if autoregressiive:
-            self.X = [X_encoder, X_decoder, y_last]
-        else:
-            self.X = [X_encoder, X_decoder]
+        self.X = [X_encoder, X_decoder, y_last, y_shifted]
+        self.X_encoder = X_encoder
+        self.X_decoder = X_decoder
+        self.y_last = y_last
+        self.y_shifted = y_shifted
+        #if autoregressiive:
+        #    self.X = [X_encoder, X_decoder, y_last]
+        #else:
+        self.X = [X_encoder, X_decoder, y_shifted, y_last]
 
         self.y = y
 
@@ -196,7 +212,7 @@ class DataSet:
         input_seq_len: int = None,
         output_seq_len: int = None,
     ):
-        """Process the raw data from a an existing DataSet configuration
+        """Process the raw data from an existing DataSet configuration
 
         This function executed the following steps:
         1. Remove days from the dataset where MeteoViva is inactive
@@ -223,9 +239,6 @@ class DataSet:
         # Load config
         self.load_dataset_config(config_path)
 
-        # Fill gaps
-        self.df_processed = preprocessing.fill_gaps(self.df_processed)
-
         # Add temporal encoding
 
         for temp_enc in self.temporal_encodings:
@@ -236,6 +249,9 @@ class DataSet:
             )
             self.features_input_encoder.append("temporal_encoding_" + temp_enc[0])
             self.features_input_decoder.append("temporal_encoding_" + temp_enc[0])
+
+        # NaN handling
+        self.nan_handler.transform(self.df_processed)
 
         # one-hot-encoding
         self.one_hot_encoder.transform(self.df_processed)
@@ -259,7 +275,7 @@ class DataSet:
         # Reset index
         self.df_processed = self.df_processed.reset_index(drop=True)
 
-        (X_encoder, X_decoder, y, y_last) = gen_sequences.extract_sequences(
+        (X_encoder, X_decoder, y, y_last) = gen_sequences.extract_sequences_encoder_decoder(
             self.df_processed,
             self.features_input_encoder,
             self.features_input_decoder,
@@ -297,6 +313,11 @@ class DataSet:
 
         json.dump(config_dict, open(config_file_dir, "w"))
 
+        # Save NaNHandler
+        nan_handler_dir = os.path.join(save_path, "NaNHandler.pkl")
+        with open(nan_handler_dir, "wb") as f:
+            pickle.dump(self.nan_handler, f, pickle.HIGHEST_PROTOCOL)
+
         # Save OneHotEncoder
         ohe_dir = os.path.join(save_path, "OneHotEncoder.pkl")
         with open(ohe_dir, "wb") as f:
@@ -329,6 +350,10 @@ class DataSet:
         self.autoregressive = config_dict["autoregressive"]
         self.input_seq_len = config_dict["input_seq_len"]
         self.output_seq_len = config_dict["output_seq_len"]
+
+        nan_handler_dir = os.path.join(load_path, "NaNHandler.pkl")
+        with open(nan_handler_dir, "rb") as f:
+            self.nan_handler = pickle.load(f)
 
         ohe_dir = os.path.join(load_path, "OneHotEncoder.pkl")
         with open(ohe_dir, "rb") as f:
@@ -379,7 +404,7 @@ class DataSet:
         """
         return gen_sequences.train_test_split(self.X, self.y, split_ratio)
 
-    def train_test_split_date(self, split_date, considered_months=None):
+    def train_test_split_date(self, date_col: str, split_date, considered_months=None):
         """Split data into training and test set using a date on which to split.
 
         :param split_date: the date on which the data is split
@@ -391,7 +416,7 @@ class DataSet:
         if considered_months is None:
             considered_months = list(range(1, 13))
         i_split = self.df_processed[
-            self.df_processed["date / time"].dt.date < split_date
+            self.df_processed[date_col].dt.date < split_date
         ].index[-1]
         split_ratio = i_split / self.df_processed.shape[0]
 
@@ -400,7 +425,7 @@ class DataSet:
         )
 
         i_months = self.df_processed[
-            self.df_processed["date / time"].dt.month.isin(considered_months)
+            self.df_processed[date_col].dt.month.isin(considered_months)
         ].index
 
         # remove indexes that are too large

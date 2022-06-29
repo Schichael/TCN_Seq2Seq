@@ -107,7 +107,7 @@ class TCN_Seq2Seq(tf.keras.Model):
 
     @tf.function
     def call(self, inputs, training=None):
-        x_encoder, x_decoder = inputs
+        x_encoder, x_decoder, y_shifted = inputs
         enc_out = self.encoder(x_encoder, training=training)
-        predictions = self.decoder([enc_out, x_decoder], training=training)
+        predictions = self.decoder([enc_out, x_decoder, y_shifted], training=training)
         return predictions

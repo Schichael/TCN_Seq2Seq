@@ -16,6 +16,7 @@ class Encoder(tf.keras.Model):
         kernel_initializer: str = "he_normal",
         batch_norm: bool = False,
         layer_norm: bool = False,
+        padding: str = "same",
     ):
         """TCN Encoder stage
         The encoder consists of a TCN block.
@@ -32,6 +33,7 @@ class Encoder(tf.keras.Model):
         :param kernel_initializer: the mode how the kernels are initialized
         :param batch_norm: if batch normalization shall be used
         :param layer_norm: if layer normalization shall be used
+        :param padding: Padding mode of the encoder. One of ['causal', 'same']
         """
         super(Encoder, self).__init__()
         self.max_seq_len = max_seq_len
@@ -44,6 +46,7 @@ class Encoder(tf.keras.Model):
         self.kernel_initializer = kernel_initializer
         self.batch_norm = batch_norm
         self.layer_norm = layer_norm
+        self.padding = padding
 
         self.tcn = TCN(
             max_seq_len=self.max_seq_len,
@@ -55,7 +58,7 @@ class Encoder(tf.keras.Model):
             activation=self.activation,
             final_activation=self.activation,
             kernel_initializer=self.kernel_initializer,
-            padding="causal",
+            padding=self.padding,
             weight_norm=False,
             batch_norm=self.batch_norm,
             layer_norm=self.layer_norm,

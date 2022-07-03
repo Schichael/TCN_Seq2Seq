@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Union
 
 import numpy as np
 import pandas as pd
@@ -7,7 +7,6 @@ from pandas.api.types import is_datetime64_any_dtype as is_datetime
 
 class NaNHandler:
     """Class to remove / fill NaN values
-    If a column contains too many NaN values, the column is removed.
     For numeric columns, NaNs are replaced by linear interpolation.
     For categorical columns, nothing is done since this is handled by one-hot-encoding.
     If the y-value is categorical, always the last value that was not NaN, will be used.
@@ -18,53 +17,45 @@ class NaNHandler:
 
     def __init__(
         self,
-        min_rel_non_nan: Optional[float] = None,
     ):
         """
         :param min_rel_non_nan: minimum relative number of non-NaN occurrences in a
         column to still be used. If a column has too many NaN values, the whole
         column is removed.
         """
-        self.min_rel_non_nan = min_rel_non_nan
-        self.remove_columns = []
         self.median_vals = {}
 
     def fit(self, df: pd.DataFrame):
         numerical_cols = df.select_dtypes(include=["number"]).columns.tolist()
-        num_rows = len(df.index)
-        if self.min_rel_non_nan is None:
-            th_remove_col = 0
-        else:
-            th_remove_col = int(self.min_rel_non_nan * num_rows)
+
         for col in numerical_cols:
             self.median_vals[col] = df[col].median()
             num_nans = df[col].isna().sum()
             if num_nans == 0:
                 continue
-            elif num_nans >= th_remove_col:
-                self.remove_columns.append(col)
 
     def transform(self, df: pd.DataFrame, inplace: bool = False):
         if not inplace:
             df = df.copy()
         numerical_cols = df.select_dtypes(include=["number"]).columns.tolist()
-        if self.remove_columns:
-            df.drop(self.remove_columns, axis=1, inplace=True)
 
         # Interpolate
         for col in numerical_cols:
-            if col in self.remove_columns:
-                continue
             df[col] = df[col].interpolate()
             df[col] = df[col].fillna(method="backfill")
         return df
 
+
 class OneHotEncoder:
-    """Class to perform one-hot-encoding"""
+    """
+    Class to perform one-hot-encoding. This is done only for categorical data.
+    Numerical data will not be one-hot-encoded.
+    """
 
     def __init__(self, min_rel_occurrence: Optional[float] = None):
         self.min_rel_occurrence = min_rel_occurrence
         self.valid_values = {}
+        self.new_col_names = {}
 
     def fit(self, df: pd.DataFrame):
         # Get categorical columns
@@ -75,17 +66,20 @@ class OneHotEncoder:
         categorical_cols = [col for col in categorical_cols if col not in datetime_cols]
         # Select the values that have enough occurrences for each categorical column
         for col in categorical_cols:
+            self.new_col_names[col] = []
             if self.min_rel_occurrence is None:
-                unique_vals = df[col].unique()
+                unique_vals = df[col].dropna().unique()
                 self.valid_values[col] = unique_vals
+                self.new_col_names[col] = self._gen_col_name(col, unique_vals)
             else:
-                rel_occurrences = df[col].value_counts(normalize=True)
+                rel_occurrences = df[col].dropna().value_counts(normalize=True)
                 print(rel_occurrences)
                 high_occurrences = rel_occurrences[
                     rel_occurrences >= self.min_rel_occurrence
                 ].index.tolist()
                 print(high_occurrences)
                 self.valid_values[col] = high_occurrences
+                self.new_col_names[col] = self._gen_col_name(col, high_occurrences)
 
     def transform(
         self, df: pd.DataFrame, inplace: bool = False, drop_unseen: bool = True
@@ -93,8 +87,9 @@ class OneHotEncoder:
         if not inplace:
             df = df.copy()
         for col_name, values in self.valid_values.items():
-            # Do not transform columns that haven't be seen during fitting. If
+            # Do not transform columns that haven't been seen during fitting. If
             # drop_unseen, drop them.
+
             if col_name not in df.columns:
                 if drop_unseen:
                     df.drop(col_name, inplace=True)
@@ -106,13 +101,27 @@ class OneHotEncoder:
             df.loc[~df[col_name].isin(values), col_name] = np.nan
             # Perform one-hot-encoding
             for val in values:
-                new_col_name = col_name + "=" + val
+                new_col_name = self._gen_col_name(col_name, [val])[0]
                 rows_with_val = np.where(df[col_name] == val)[0]
                 df[new_col_name] = 0
                 df.loc[rows_with_val, new_col_name] = 1
+
             # Remove original column
             df.drop(col_name, axis=1, inplace=True)
         return df
+
+    def _gen_col_name(self, col_name: str, values: List[str]) -> List[str]:
+        """Generate the column names for a column and a list of column values.
+
+        :param col_name: column name
+        :param values: column values
+        :return: List with the generated column names
+        """
+        new_col_names = []
+        for val in values:
+            new_col_names.append(col_name + "=" + val)
+
+        return new_col_names
 
 
 def compute_temporal_encoding(df, time_col: str, feature, mode):
@@ -149,9 +158,7 @@ def compute_temporal_encoding(df, time_col: str, feature, mode):
         mean_summer = df[pd.to_datetime(df[time_col]).dt.month.isin(summer)][
             feature
         ].mean()
-        mean_fall = df[pd.to_datetime(df[time_col]).dt.month.isin(fall)][
-            feature
-        ].mean()
+        mean_fall = df[pd.to_datetime(df[time_col]).dt.month.isin(fall)][feature].mean()
 
         return [mean_winter, mean_spring, mean_summer, mean_fall]
 
@@ -165,9 +172,7 @@ def compute_temporal_encoding(df, time_col: str, feature, mode):
     elif mode == "hours":
         means = []
         for i in range(0, 24):
-            means.append(
-                df[pd.to_datetime(df[time_col]).dt.hour == i][feature].mean()
-            )
+            means.append(df[pd.to_datetime(df[time_col]).dt.hour == i][feature].mean())
         return means
     elif mode == "weekdays":
 
@@ -187,7 +192,6 @@ def add_temporal_encoding(
     time_col: str,
     train_size=None,
     feature=None,
-
     mode="seasons",
     encoding=None,
 ):
@@ -223,7 +227,9 @@ def add_temporal_encoding(
             means = encoding
         else:
             train_len = int(df.shape[0] * train_size)
-            means = compute_temporal_encoding(df[:train_len], time_col,feature, mode="seasons")
+            means = compute_temporal_encoding(
+                df[:train_len], time_col, feature, mode="seasons"
+            )
 
         def season_mapper(row):
             if pd.to_datetime(row[time_col]).month in winter:
@@ -245,8 +251,9 @@ def add_temporal_encoding(
             means = encoding
         else:
             train_len = int(df.shape[0] * train_size)
-            means = compute_temporal_encoding(df[:train_len],time_col, feature, \
-                                                                  mode="months")
+            means = compute_temporal_encoding(
+                df[:train_len], time_col, feature, mode="months"
+            )
 
         def months_mapper(row):
             return means[row[time_col].month - 1]
@@ -261,8 +268,9 @@ def add_temporal_encoding(
             means = encoding
         else:
             train_len = int(df.shape[0] * train_size)
-            means = compute_temporal_encoding(df[:train_len], time_col, feature,
-                                              mode="weekdays")
+            means = compute_temporal_encoding(
+                df[:train_len], time_col, feature, mode="weekdays"
+            )
 
         def weekdays_wrapper(row):
             return means[row[time_col].weekday()]
@@ -277,7 +285,9 @@ def add_temporal_encoding(
             means = encoding
         else:
             train_len = int(df.shape[0] * train_size)
-            means = compute_temporal_encoding(df[:train_len], time_col, feature, mode="hours")
+            means = compute_temporal_encoding(
+                df[:train_len], time_col, feature, mode="hours"
+            )
 
         def hours_wrapper(row):
             return means[row[time_col].hour]

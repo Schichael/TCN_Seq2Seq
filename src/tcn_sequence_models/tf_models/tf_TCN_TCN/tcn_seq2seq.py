@@ -20,6 +20,8 @@ class TCN_Seq2Seq(tf.keras.Model):
         kernel_initializer: str = "he_normal",
         batch_norm_tcn: bool = False,
         layer_norm_tcn: bool = False,
+        padding_encoder: str = "same",
+        autoregressive: bool = False,
     ):
         """Model that uses a TCN as encoder and a TCN based decoder.
 
@@ -42,6 +44,11 @@ class TCN_Seq2Seq(tf.keras.Model):
         :param kernel_initializer: the mode how the kernels are initialized
         :param batch_norm_tcn: if batch normalization shall be used
         :param layer_norm_tcn: if layer normalization shall be used
+        :param padding_encoder: Padding mode of the encoder. One of ['causal', 'same']
+        :param autoregressive: whether to use autoregression in the decoder or not.
+        If True, teacher-forcing is applied during training and autoregression is
+        used during inference. If False, groundtruths / predictions of the previous
+        step are not used.
         """
         super(TCN_Seq2Seq, self).__init__()
         self.num_filters = num_filters
@@ -57,6 +64,8 @@ class TCN_Seq2Seq(tf.keras.Model):
         self.kernel_initializer = kernel_initializer
         self.batch_norm_tcn = batch_norm_tcn
         self.layer_norm_tcn = layer_norm_tcn
+        self.padding_encoder = padding_encoder
+        self.autoregressive = autoregressive
 
         self.encoder = None
         self.decoder = None
@@ -86,6 +95,7 @@ class TCN_Seq2Seq(tf.keras.Model):
             batch_norm=self.batch_norm_tcn,
             layer_norm=self.layer_norm_tcn,
             num_layers=self.num_layers_tcn,
+            padding=self.padding_encoder,
         )
 
         self.decoder = Decoder(
@@ -103,11 +113,20 @@ class TCN_Seq2Seq(tf.keras.Model):
             layer_norm=self.layer_norm_tcn,
             output_neurons=self.neurons_output,
             num_layers=self.num_layers_tcn,
+            autoregressive=self.autoregressive,
         )
 
     @tf.function
     def call(self, inputs, training=None):
-        x_encoder, x_decoder, y_shifted = inputs
-        enc_out = self.encoder(x_encoder, training=training)
-        predictions = self.decoder([enc_out, x_decoder, y_shifted], training=training)
+        if self.autoregressive:
+            x_encoder, x_decoder, y_shifted = inputs
+            enc_out = self.encoder(x_encoder, training=training)
+            predictions = self.decoder(
+                [enc_out, x_decoder, y_shifted], training=training
+            )
+        else:
+            x_encoder, x_decoder = inputs
+            enc_out = self.encoder(x_encoder, training=training)
+            predictions = self.decoder([enc_out, x_decoder], training=training)
+
         return predictions

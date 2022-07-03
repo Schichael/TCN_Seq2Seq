@@ -31,18 +31,17 @@ def train_test_split(
     return X_train, y_train, X_val, y_val
 
 
-def extract_sequences_encoder_decoder(
+def extract_sequences_encoder_decoder_training(
     df,
     input_features_encoder: [str],
     input_features_decoder: [str],
     target_feature: str,
     encoder_length: int,
     decoder_length: int,
-    parent_learning: bool = True,
     downsampling_ratio_encoder: int = 1,
     downsampling_ratio_decoder: int = 1,
 ):
-    """Extract sequences from the dataframe for model input
+    """Extract sequences from the dataframe for model input for training
 
     :param df: input DataFrame
     :param input_features_encoder: features used for the encoder
@@ -55,22 +54,16 @@ def extract_sequences_encoder_decoder(
     :return: arrays of encoder input, decoder input, target values and target values
     of last encoder timestep
     """
-    inputs_encoder = df[: -decoder_length][
-        input_features_encoder
-    ].values
-    inputs_decoder = df[encoder_length :][
-        input_features_decoder
-    ].values
+    inputs_encoder = df[:-decoder_length][input_features_encoder].values
+    inputs_decoder = df[encoder_length:][input_features_decoder].values
 
-    y_shifted = df[(encoder_length - 1) :-1][target_feature].values
+    y_shifted = df[(encoder_length - 1) : -1][target_feature].values
 
-    outputs_decoder = df[encoder_length :][
+    outputs_decoder = df[encoder_length:][target_feature].values
+
+    outputs_encoder_last = df[(encoder_length - 1) : -decoder_length][
         target_feature
     ].values
-
-    outputs_encoder_last = df[
-        (encoder_length - 1) : -decoder_length
-    ][target_feature].values
 
     X_encoder = _extract_windows(
         array=inputs_encoder,
@@ -101,29 +94,38 @@ def extract_sequences_encoder_decoder(
     return X_encoder, X_decoder, y, y_shifted, y_last
 
 
-def extract_sequences_one_classification_regression(
-    df_X,
-    df_y,
+def extract_sequences_encoder_decoder_inference(
+    df,
     input_features_encoder: [str],
+    input_features_decoder: [str],
+    target_feature: str,
     encoder_length: int,
+    decoder_length: int,
     downsampling_ratio_encoder: int = 1,
+    downsampling_ratio_decoder: int = 1,
 ):
-    """Extract sequences from the dataframe for model input
+    """Extract sequences from the dataframe for model input for inference
 
     :param df: input DataFrame
     :param input_features_encoder: features used for the encoder
+    :param input_features_decoder: features used for the decoder
     :param target_feature: label of the target feature
     :param encoder_length: length / number of time steps of the encoder
+    :param decoder_length: length / number of time steps of the decoder
     :param downsampling_ratio_encoder: downsampling ratio to use for encoder data
+    :param downsampling_ratio_decoder: downsampling ratio to use for decoder data
     :return: arrays of encoder input, decoder input, target values and target values
     of last encoder timestep
     """
-    inputs_encoder = df_X[
-        input_features_encoder
-    ].values
+    inputs_encoder = df[:-decoder_length][input_features_encoder].values
+    inputs_decoder = df[encoder_length:][input_features_decoder].values
 
-    outputs = df_y[
-        encoder_length:
+    y_shifted = df[(encoder_length - 1) : -1][target_feature].values
+
+    outputs_decoder = df[encoder_length:][target_feature].values
+
+    outputs_encoder_last = df[(encoder_length - 1) : -decoder_length][
+        target_feature
     ].values
 
     X_encoder = _extract_windows(
@@ -131,14 +133,24 @@ def extract_sequences_one_classification_regression(
         seq_length=encoder_length,
         downsampling_ratio=downsampling_ratio_encoder,
     )
-
-    y = _extract_windows(
-        array=outputs,
-        seq_length=1,
-        downsampling_ratio=1
+    X_decoder = _extract_windows(
+        array=inputs_decoder,
+        seq_length=decoder_length,
+        downsampling_ratio=downsampling_ratio_decoder,
     )
 
-    return X_encoder, y
+    y_shifted = _extract_windows(
+        array=y_shifted,
+        seq_length=decoder_length,
+        downsampling_ratio=downsampling_ratio_decoder,
+    )
+
+    y_last = _extract_windows(
+        array=outputs_encoder_last,
+        seq_length=1,
+        downsampling_ratio=downsampling_ratio_decoder,
+    )
+    return X_encoder, X_decoder, y_shifted, y_last
 
 
 def extract_sequences_inference_encoder_decoder(
@@ -150,7 +162,7 @@ def extract_sequences_inference_encoder_decoder(
     decoder_length: int,
     downsampling_ratio_encoder: int = 1,
     downsampling_ratio_decoder: int = 1,
-    autoregressive: bool = False
+    autoregressive: bool = False,
 ):
     """Extract sequences from the dataframe for model input for inference,
     i.e. without the target features.
@@ -170,18 +182,14 @@ def extract_sequences_inference_encoder_decoder(
     """
     if len(input_features_decoder) == 0:
         inputs_encoder = df[input_features_encoder].values
-        inputs_decoder = df[
-            []
-        ].values
+        inputs_decoder = df[[]].values
     else:
         inputs_encoder = df[: -decoder_length * downsampling_ratio_decoder][
             input_features_encoder
         ].values
-        inputs_decoder = df[encoder_length * downsampling_ratio_encoder:][
+        inputs_decoder = df[encoder_length * downsampling_ratio_encoder :][
             input_features_decoder
         ].values
-
-
 
     X_encoder = _extract_windows(
         array=inputs_encoder,
@@ -195,10 +203,10 @@ def extract_sequences_inference_encoder_decoder(
     )
 
     outputs_encoder_last = df[
-                           (encoder_length - 1)
-                           * downsampling_ratio_encoder: -decoder_length
-                                                         * downsampling_ratio_decoder
-                           ][target_feature].values
+        (encoder_length - 1)
+        * downsampling_ratio_encoder : -decoder_length
+        * downsampling_ratio_decoder
+    ][target_feature].values
 
     y_last = _extract_windows(
         array=outputs_encoder_last,
@@ -206,8 +214,6 @@ def extract_sequences_inference_encoder_decoder(
         downsampling_ratio=downsampling_ratio_decoder,
     )
     return X_encoder, X_decoder, y_last
-
-
 
 
 def _extract_windows(array, seq_length, downsampling_ratio):

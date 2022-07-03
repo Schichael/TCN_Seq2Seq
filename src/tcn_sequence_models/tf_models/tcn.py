@@ -183,7 +183,7 @@ class TCN(Model):
     @property
     def receptive_field(self):
         return 1 + 2 * (self.kernel_size - 1) * (
-            self.dilation_base**self.num_layers
+            self.dilation_base ** self.num_layers
         ) / (self.dilation_base - 1)
 
     def build(self, input_shape):
@@ -200,7 +200,7 @@ class TCN(Model):
             )
 
         for i in range(self.num_layers):
-            dilation_rate = self.dilation_base**i
+            dilation_rate = self.dilation_base ** i
             self.dilation_rates.append(dilation_rate)
             self.res_block_list.append(
                 ResidualBlock(

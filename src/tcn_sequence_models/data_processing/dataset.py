@@ -2,11 +2,14 @@ import json
 import pickle
 from typing import Optional, List
 
+import numpy as np
 import pandas as pd
 import os
 
 import sys
 from pathlib import Path
+
+import tcn_sequence_models.utils.train_test_split
 from tcn_sequence_models import utils
 from tcn_sequence_models.data_processing.preprocessing import OneHotEncoder, NaNHandler
 
@@ -212,6 +215,9 @@ class DataSet:
             downsampling_ratio_decoder=1,
         )
         if self.model_type == "tcn_tcn":
+            if X_decoder.shape[-1] == 0:
+                X_decoder = np.full(shape=(X_decoder.shape[0],X_decoder.shape[1],1),
+                                    fill_value=1, dtype=float)
             if self.autoregressive:
                 self.X = [X_encoder, X_decoder, y_shifted, y_last]
             else:
@@ -248,7 +254,10 @@ class DataSet:
         input_seq_len: Optional[int] = None,
         output_seq_len: Optional[int] = None,
     ):
-        """Process the raw data from an existing DataSet configuration for inference
+        """Process the raw data from an existing DataSet configuration for inference.
+        Use this method when the dataset was loaded from a config and the data will
+        be used for inference. The processed data that is used to make predictions is
+        stored in self.X. No ground truth values of the predictions are extracted.
 
         This function executed the following steps:
         1. Remove days from the dataset where MeteoViva is inactive
@@ -340,7 +349,9 @@ class DataSet:
         input_seq_len: int,
         output_seq_len: int,
     ):
-        """Process the raw data from an existing DataSet configuration
+        """Process the raw data from an existing DataSet configuration for training.
+        Use this method when the dataset was loaded from a config and a
+        train_test_split is performed afterwards.
 
         This function executed the following steps:
         1. Remove days from the dataset where MeteoViva is inactive
@@ -510,7 +521,7 @@ class DataSet:
         :return: 4 lists containing the input training data, output training data,
         input test data and output test data
         """
-        X_train, y_train, X_val, y_val = gen_sequences.train_test_split(
+        X_train, y_train, X_val, y_val = tcn_sequence_models.utils.train_test_split.train_test_split(
             self.X, self.y, split_ratio
         )
         if self.model_type == "tcn_tcn" and self.autoregressive:

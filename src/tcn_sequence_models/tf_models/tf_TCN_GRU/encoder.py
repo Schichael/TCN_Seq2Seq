@@ -12,7 +12,6 @@ class Encoder(tf.keras.Model):
         kernel_size: int,
         dilation_base: int,
         dropout_rate: float,
-        num_stages: int = 1,
         activation: str = "elu",
         kernel_initializer: str = "he_normal",
         padding: str = "same",
@@ -29,7 +28,6 @@ class Encoder(tf.keras.Model):
         :param kernel_size: kernel size of CNNs
         :param dilation_base: dilation base
         :param dropout_rate: dropout rate
-        :param num_stages: number of stages
         :param activation: the activation function used throughout the encoder
         :param kernel_initializer: the mode how the kernels are initialized
         :param padding: padding, usually' causal' or 'same'
@@ -42,18 +40,13 @@ class Encoder(tf.keras.Model):
         self.kernel_size = kernel_size
         self.dilation_base = dilation_base
         self.dropout_rate = dropout_rate
-        self.num_stages = num_stages
         self.activation = activation
         self.kernel_initializer = kernel_initializer
         self.padding = padding
         self.batch_norm = batch_norm
         self.layer_norm = layer_norm
 
-        self.tcn_list = []
-
-        for i in range(self.num_stages):
-            self.tcn_list.append(
-                TCN(
+        self.tcn = TCN(
                     max_seq_len=self.max_seq_len // 2,
                     num_stages=2,
                     num_filters=self.num_filters,
@@ -69,7 +62,7 @@ class Encoder(tf.keras.Model):
                     layer_norm=self.layer_norm,
                     return_sequence=True,
                 )
-            )
+
 
         # Normalization after each TCN stage
         self.normalization_layers = []
@@ -84,8 +77,5 @@ class Encoder(tf.keras.Model):
 
     @tf.function
     def call(self, data_encoder, training=None):
-
-        out = self.tcn_list[0](data_encoder, training=training)
-        for i in range(self.num_stages - 1):
-            out = self.tcn_list[i + 1](out, training=training)
+        out = self.tcn(data_encoder, training=training)
         return out

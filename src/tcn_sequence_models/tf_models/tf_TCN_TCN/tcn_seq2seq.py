@@ -21,6 +21,7 @@ class TCN_Seq2Seq(tf.keras.Model):
         batch_norm_tcn: bool = False,
         layer_norm_tcn: bool = False,
         padding_encoder: str = "same",
+        padding_decoder: str = "causal",
         autoregressive: bool = False,
     ):
         """Model that uses a TCN as encoder and a TCN based decoder.
@@ -45,6 +46,9 @@ class TCN_Seq2Seq(tf.keras.Model):
         :param batch_norm_tcn: if batch normalization shall be used
         :param layer_norm_tcn: if layer normalization shall be used
         :param padding_encoder: Padding mode of the encoder. One of ['causal', 'same']
+        :param padding_decoder: Padding mode of the encoder. One of ['causal',
+        'same']. If autoregressive = True, decoder padding will always be causal an
+        the padding_decoder value has no effect.
         :param autoregressive: whether to use autoregression in the decoder or not.
         If True, teacher-forcing is applied during training and autoregression is
         used during inference. If False, groundtruths / predictions of the previous
@@ -65,6 +69,7 @@ class TCN_Seq2Seq(tf.keras.Model):
         self.batch_norm_tcn = batch_norm_tcn
         self.layer_norm_tcn = layer_norm_tcn
         self.padding_encoder = padding_encoder
+        self.padding_decoder = padding_decoder
         self.autoregressive = autoregressive
 
         self.encoder = None
@@ -102,6 +107,7 @@ class TCN_Seq2Seq(tf.keras.Model):
             output_neurons=self.neurons_output,
             num_layers=self.num_layers_tcn,
             autoregressive=self.autoregressive,
+            padding=self.padding_decoder,
         )
 
     @tf.function

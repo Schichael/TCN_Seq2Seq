@@ -189,6 +189,7 @@ class TCN_Seq2Seq(BaseModel):
         batch_norm_tcn: bool = False,
         layer_norm_tcn: bool = True,
         padding_encoder: str = "same",
+        padding_decoder: str = "causal",
         autoregressive: bool = False,
     ):
         self.num_filters = num_filters
@@ -205,6 +206,7 @@ class TCN_Seq2Seq(BaseModel):
         self.batch_norm_tcn = batch_norm_tcn
         self.layer_norm_tcn = layer_norm_tcn
         self.padding_encoder = padding_encoder
+        self.padding_decoder = padding_decoder
         self.autoregressive = autoregressive
 
         self.model = tcn_seq2seq.TCN_Seq2Seq(
@@ -222,6 +224,7 @@ class TCN_Seq2Seq(BaseModel):
             batch_norm_tcn=batch_norm_tcn,
             layer_norm_tcn=layer_norm_tcn,
             padding_encoder=padding_encoder,
+            padding_decoder=padding_decoder,
             autoregressive=self.autoregressive,
         )
 
@@ -250,6 +253,7 @@ class TCN_Seq2Seq(BaseModel):
         batch_norm_tcn: Optional[List[bool]] = None,
         layer_norm_tcn: Optional[List[bool]] = None,
         padding_encoder: Optional[List[str]] = None,
+        padding_decoder: Optional[List[str]] = None,
     ):
         # init parameters
         if num_filters is None:
@@ -272,6 +276,8 @@ class TCN_Seq2Seq(BaseModel):
             layer_norm_tcn = [False]
         if padding_encoder is None:
             padding_encoder = ["same"]
+        if padding_decoder is None:
+            padding_decoder = ["causal"]
 
         def create_model(
             hp,
@@ -290,6 +296,7 @@ class TCN_Seq2Seq(BaseModel):
             hp_batch_norm_tcn = hp.Choice("batch_norm_tcn", batch_norm_tcn)
             hp_layer_norm_tcn = hp.Choice("layer_norm_tcn", layer_norm_tcn)
             hp_padding_encoder = hp.Choice("padding_encoder", padding_encoder)
+            hp_padding_decoder = hp.Choice("padding_decoder", padding_decoder)
 
             model = tcn_seq2seq.TCN_Seq2Seq(
                 num_layers_tcn=None,
@@ -307,6 +314,7 @@ class TCN_Seq2Seq(BaseModel):
                 layer_norm_tcn=hp_layer_norm_tcn,
                 autoregressive=self.autoregressive,
                 padding_encoder=hp_padding_encoder,
+                padding_decoder=hp_padding_decoder
             )
 
             model.compile(loss=loss, optimizer=optimizer)
@@ -353,6 +361,7 @@ class TCN_Seq2Seq(BaseModel):
             "layer_norm_tcn": self.layer_norm_tcn,
             "autoregressive": self.autoregressive,
             "padding_encoder": self.padding_encoder,
+            "padding_decoder": self.padding_decoder
         }
 
         json.dump(config_dict, open(config_file_dir, "w"))
@@ -369,7 +378,6 @@ class TCN_GRU(BaseModel):
         """
         super().__init__()
         self.model = None
-        self.num_stages_enc = (None,)
         self.num_filters = None
         self.kernel_size_enc = None
         self.dilation_base = None
@@ -387,7 +395,6 @@ class TCN_GRU(BaseModel):
 
     def build(
         self,
-        num_stages_enc: int,
         num_filters: int,
         kernel_size_enc: int,
         dilation_base: int,
@@ -403,7 +410,6 @@ class TCN_GRU(BaseModel):
         batch_norm: bool = False,
         layer_norm: bool = False,
     ):
-        self.num_stages_enc = num_stages_enc
         self.num_filters = num_filters
         self.kernel_size_enc = kernel_size_enc
         self.dilation_base = dilation_base
@@ -420,7 +426,6 @@ class TCN_GRU(BaseModel):
         self.layer_norm = layer_norm
 
         self.model = tcn_gru_attention_model.TCN_GRU_ATTENTION(
-            num_stages_enc=num_stages_enc,
             num_filters=num_filters,
             kernel_size_enc=kernel_size_enc,
             dilation_base=dilation_base,
@@ -444,7 +449,6 @@ class TCN_GRU(BaseModel):
         X_val,
         y_val,
         results_path: str,
-        num_stages_enc: int,
         num_filters: int,
         kernel_size_enc: int,
         dilation_base: int,
@@ -468,7 +472,6 @@ class TCN_GRU(BaseModel):
         def create_model(
             hp,
         ):
-            hp_num_stages_enc = hp.Choice("num_stages_enc", num_stages_enc)
             hp_num_filters = hp.Choice("num_filters", num_filters)
             hp_kernel_size_enc = hp.Choice("kernel_size_enc", kernel_size_enc)
             hp_dilation_base = hp.Choice("dilation_base", dilation_base)
@@ -489,7 +492,6 @@ class TCN_GRU(BaseModel):
             hp_layer_norm = hp.Choice("layer_norm", layer_norm)
 
             model = tcn_gru_attention_model.TCN_GRU_ATTENTION(
-                num_stages_enc=hp_num_stages_enc,
                 num_filters=hp_num_filters,
                 kernel_size_enc=hp_kernel_size_enc,
                 dilation_base=hp_dilation_base,
@@ -533,7 +535,6 @@ class TCN_GRU(BaseModel):
         config_file_dir = os.path.join(save_path, "model_config.json")
         model_file_dir = os.path.join(save_path, "model_weights.h5")
         config_dict = {
-            "num_stages_enc": self.num_stages_enc,
             "num_filters": self.num_filters,
             "kernel_size_enc": self.kernel_size_enc,
             "dilation_base": self.dilation_base,

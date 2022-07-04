@@ -73,9 +73,7 @@ class BaseModel(ABC):
         pred = np.mean(np.array(preds), axis=0)
         return pred
 
-    def eval(
-        self, X, y, scaler_y=None, metric=metrics.mean_squared_error
-    ):
+    def eval(self, X, y, scaler_y=None, metric=metrics.mean_squared_error):
         """Evaluate the score of the model
 
         :param X: X values
@@ -309,7 +307,7 @@ class TCN_Seq2Seq(BaseModel):
                 layer_norm_tcn=hp_layer_norm_tcn,
                 autoregressive=self.autoregressive,
                 padding_encoder=hp_padding_encoder,
-                padding_decoder=hp_padding_decoder
+                padding_decoder=hp_padding_decoder,
             )
 
             model.compile(loss=loss, optimizer=optimizer)
@@ -361,7 +359,7 @@ class TCN_Seq2Seq(BaseModel):
             "layer_norm_tcn": self.layer_norm_tcn,
             "autoregressive": self.autoregressive,
             "padding_encoder": self.padding_encoder,
-            "padding_decoder": self.padding_decoder
+            "padding_decoder": self.padding_decoder,
         }
 
         json.dump(config_dict, open(config_file_dir, "w"))

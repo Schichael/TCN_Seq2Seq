@@ -75,7 +75,6 @@ class TCN_Seq2Seq(tf.keras.Model):
         self.encoder = None
         self.decoder = None
 
-
     def build(self, input_shape):
         self.encoder = Encoder(
             max_seq_len=input_shape[0][1],

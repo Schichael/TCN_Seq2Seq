@@ -47,21 +47,21 @@ class Encoder(tf.keras.Model):
         self.layer_norm = layer_norm
 
         self.tcn = TCN(
-                    max_seq_len=self.max_seq_len // 2,
-                    num_stages=2,
-                    num_filters=self.num_filters,
-                    kernel_size=self.kernel_size,
-                    dilation_base=self.dilation_base,
-                    dropout_rate=self.dropout_rate,
-                    activation=self.activation,
-                    final_activation=self.activation,
-                    kernel_initializer=self.kernel_initializer,
-                    padding=self.padding,
-                    weight_norm=False,
-                    batch_norm=self.batch_norm,
-                    layer_norm=self.layer_norm,
-                    return_sequence=True,
-                )
+            max_seq_len=self.max_seq_len // 2,
+            num_stages=2,
+            num_filters=self.num_filters,
+            kernel_size=self.kernel_size,
+            dilation_base=self.dilation_base,
+            dropout_rate=self.dropout_rate,
+            activation=self.activation,
+            final_activation=self.activation,
+            kernel_initializer=self.kernel_initializer,
+            padding=self.padding,
+            weight_norm=False,
+            batch_norm=self.batch_norm,
+            layer_norm=self.layer_norm,
+            return_sequence=True,
+        )
 
     @tf.function
     def call(self, data_encoder, training=None):

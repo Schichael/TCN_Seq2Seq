@@ -132,7 +132,6 @@ class Decoder(tf.keras.Model):
         # last output layer
         self.output_layers.append(tf.keras.layers.Dense(1))
 
-
     @tf.function
     def call(self, inputs, training=True):
         if training:

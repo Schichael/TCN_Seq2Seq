@@ -21,6 +21,7 @@ from tcn_sequence_models.data_processing import gen_sequences, preprocessing
 
 class Preprocessor:
     """Preprocessor class to prepare data for the models"""
+
     def __init__(self, df: pd.DataFrame):
         self.df_raw = df
         self.df_processed = None
@@ -151,7 +152,6 @@ class Preprocessor:
             features_input_decoder, self.one_hot_encoder
         )
 
-
         # Add temporal encoding
         if temporal_encoding_modes is None:
             temporal_encoding_modes = []
@@ -171,7 +171,6 @@ class Preprocessor:
             ]
 
             self.temporal_encodings.append((temp_enc, temporal_encoding))
-
 
         # scale X-features
         self.df_processed, self.scaler_X = utils.scaling.scale_input_data(
@@ -214,7 +213,9 @@ class Preprocessor:
                 if X_decoder.shape[-1] == 0:
                     X_decoder = np.full(
                         shape=(X_decoder.shape[0], X_decoder.shape[1], 1),
-                        fill_value=1, dtype=float)
+                        fill_value=1,
+                        dtype=float,
+                    )
                 self.X = [X_encoder, X_decoder]
         else:
             self.X = [X_encoder, X_decoder, y_last]
@@ -285,8 +286,6 @@ class Preprocessor:
             )
             encoded_features_input_encoder.append("temporal_encoding_" + temp_enc[0])
             encoded_features_input_decoder.append("temporal_encoding_" + temp_enc[0])
-
-
 
         # scale X-features
         self.df_processed, _ = utils.scaling.scale_input_data(
@@ -375,8 +374,6 @@ class Preprocessor:
             )
             encoded_features_input_encoder.append("temporal_encoding_" + temp_enc[0])
             encoded_features_input_decoder.append("temporal_encoding_" + temp_enc[0])
-
-
 
         # scale X-features
         self.df_processed, _ = utils.scaling.scale_input_data(
@@ -506,7 +503,12 @@ class Preprocessor:
         :return: 4 lists containing the input training data, output training data,
         input test data and output test data
         """
-        X_train, y_train, X_val, y_val = tcn_sequence_models.utils.train_test_split.train_test_split(
+        (
+            X_train,
+            y_train,
+            X_val,
+            y_val,
+        ) = tcn_sequence_models.utils.train_test_split.train_test_split(
             self.X, self.y, split_ratio
         )
         if self.model_type == "tcn_tcn" and self.autoregressive:

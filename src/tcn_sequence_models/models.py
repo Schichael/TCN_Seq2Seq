@@ -57,26 +57,24 @@ class BaseModel(ABC):
             **kwargs
         )
 
-    def predict(self, X, scaler=None, iterations=1):
+    def predict(self, X, scaler=None):
         """Make predictions
 
         :param X: X values
         :param scaler: scaler. If given, scales the output sequences back to the
         original values
-        :param iterations: number of iterations to account for dropout layers
         :return: the predicted sequences
         """
         preds = []
-        for i in range(iterations):
-            pred = self.model.predict(X)
-            if scaler:
-                pred = inverse_scale_sequences(pred, scaler)
-            preds.append(pred)
+        pred = self.model.predict(X)
+        if scaler:
+            pred = inverse_scale_sequences(pred, scaler)
+        preds.append(pred)
         pred = np.mean(np.array(preds), axis=0)
         return pred
 
     def eval(
-        self, X, y, scaler_y=None, metric=metrics.mean_squared_error, iterations=1
+        self, X, y, scaler_y=None, metric=metrics.mean_squared_error
     ):
         """Evaluate the score of the model
 
@@ -85,13 +83,12 @@ class BaseModel(ABC):
         :param scaler_y: scaler with which y-values were scaled. If None, data is not
         scaled before computing the score
         :param metric: metric from sklearn library
-        :param iterations: number of iterations to account for dropout layers
         :return:
         """
         X = X.copy()
         y = y.copy()
         scores = []
-        preds = self.predict(X, scaler_y, iterations=iterations)
+        preds = self.predict(X, scaler_y)
         if scaler_y is not None:
             y = inverse_scale_sequences(y, scaler_y)
         for i, pred in enumerate(preds):
@@ -134,17 +131,15 @@ class BaseModel(ABC):
         :param is_training_data: whether X is training data or inference data
         :return:
         """
+        X_init = []
+        for el in X:
+            X_init.append(el[:1])
         config_file_dir = os.path.join(load_path, "model_config.json")
-        print(1)
         config_dict = json.load(open(config_file_dir))
-        print(2)
         self.build(**config_dict)
         # Call once to set weights later
-        print(3)
-        self.model(X, training=is_training_data)
-        print(4)
+        self.model(X_init, training=is_training_data)
         load_dir = os.path.join(load_path, "model_weights.h5")
-        print(5)
         # model_weights = tf.keras.models.load_model(load_dir)
         self.model.load_weights(load_dir)
 
@@ -341,6 +336,11 @@ class TCN_Seq2Seq(BaseModel):
         )
 
     def save_model(self, save_path):
+        """Create and save json file of model configs
+
+        :param save_path: path to save the config
+        :return:
+        """
         # Create and save json of model configs
 
         config_file_dir = os.path.join(save_path, "model_config.json")
@@ -425,7 +425,7 @@ class TCN_GRU(BaseModel):
         self.batch_norm = batch_norm
         self.layer_norm = layer_norm
 
-        self.model = tcn_gru_attention_model.TCN_GRU_ATTENTION(
+        self.model = tcn_gru_attention_model.TCN_GRU(
             num_filters=num_filters,
             kernel_size_enc=kernel_size_enc,
             dilation_base=dilation_base,
@@ -491,7 +491,7 @@ class TCN_GRU(BaseModel):
             hp_batch_norm = hp.Choice("batch_norm", batch_norm)
             hp_layer_norm = hp.Choice("layer_norm", layer_norm)
 
-            model = tcn_gru_attention_model.TCN_GRU_ATTENTION(
+            model = tcn_gru_attention_model.TCN_GRU(
                 num_filters=hp_num_filters,
                 kernel_size_enc=hp_kernel_size_enc,
                 dilation_base=hp_dilation_base,

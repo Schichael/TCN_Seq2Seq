@@ -30,7 +30,7 @@ class Decoder(tf.keras.Model):
         using the output of the self attention and the encoder output.
         - The last prediction of timestep t-1 or if it's the first timestep the last
         true target value.
-        To make a prediction, the current hidden state is concatinated with the last
+        To make a prediction, the current hidden state is concatenated with the last
         output of the cross attention and then fed into a prediction stage (a block
         of dense layers) that then makes the final prediction.
 

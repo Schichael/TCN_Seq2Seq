@@ -19,19 +19,9 @@ sys.path.insert(0, str(Path().cwd() / Path("../../..")) + str(Path("/")))
 from tcn_sequence_models.data_processing import gen_sequences, preprocessing
 
 
-class DataSet:
+class Preprocessor:
+    """Preprocessor class to prepare data for the models"""
     def __init__(self, df: pd.DataFrame):
-        """Dataset class to handle loading and preparing data for the models
-
-        Steps to load and process a dataset to make it ready for the models
-        with / without a saved configuration:
-        1. call load_data(...)
-        2. call process(...) / process_from_config(...)
-        3. call train_test_split(...)
-        4. to save the dataset configurations: call save_dataset_config(...)
-
-        """
-
         self.df_raw = df
         self.df_processed = None
         self.features_input_encoder = None
@@ -48,6 +38,8 @@ class DataSet:
         self.autoregressive = False
         self.nan_handler = None
         self.one_hot_encoder = None
+        self.time_col = None
+        self.min_rel_occurrence = None
 
     def load_data(self, path, file_type="xlsx"):
         """Load the raw data from a xlsx or csv file
@@ -81,19 +73,18 @@ class DataSet:
         split_date=None,
         temporal_encoding_modes: Optional[List[str]] = None,
         min_rel_occurrence: Optional[float] = None,
-        autoregressiive: bool = False,
+        autoregressive: bool = False,
     ):
         """Process the raw data
 
         This function executed the following steps:
         1. Fill NaNs by using the last observed value in the column
-        2. Add temporal encodings as defined in the temporal_encoding_modes parameter
-        3. one-hot-encode categorical data
-        4. Scale the features that are defined in features_input_encoder,
-        features_input_decoder and feature_target using a StandardScaler. The
-        scalers for the input features and target feature are saved in the scaler_X
-        and scaler_y attributes, respectively.
-        6. Create sequences for encoder and decoder inputs and the target values. The
+        2. One-hot-encode categorical features
+        3. Add temporal encodings as defined in the temporal_encoding_modes parameter
+        4. Scale the features using a StandardScaler. The scalers for the input
+        features and target feature are saved in the scaler_X and scaler_y
+        attributes, respectively.
+        5. Create sequences for encoder and decoder inputs and the target values. The
         sequences are stored in the X and y attributes.
 
 
@@ -109,7 +100,7 @@ class DataSet:
         Possible encodings: 'hours', 'months', 'seasons', 'weekdays', 'holidays'
         :param min_rel_occurrence: minimum relative number of occurrences of
         categorical column values to be used for one-hot-encoding.
-        :param autoregressiive: if True, the X attribute gets the last target value
+        :param autoregressive: if True, the X attribute gets the last target value
         as third element. This last element can be used as a first input of a decoder
         that reuses past predictions (e.g. when using an RNN as decoder)
         :return:
@@ -126,7 +117,7 @@ class DataSet:
 
         self.time_col = time_col
         self.df_processed = self.df_raw.copy()
-        self.autoregressive = autoregressiive
+        self.autoregressive = autoregressive
         self.features_input_encoder = features_input_encoder
         self.features_input_decoder = features_input_decoder
         self.feature_target = feature_target
@@ -142,26 +133,6 @@ class DataSet:
             ].index[-1]
             split_ratio = i_split / self.df_processed.shape[0]
 
-        # Add temporal encoding
-        if temporal_encoding_modes is None:
-            temporal_encoding_modes = []
-        for temp_enc in temporal_encoding_modes:
-            print(temp_enc)
-            self.df_processed, temporal_encoding = preprocessing.add_temporal_encoding(
-                self.df_processed,
-                self.time_col,
-                split_ratio,
-                feature=feature_target,
-                mode=temp_enc,
-            )
-            features_input_encoder = features_input_encoder + [
-                "temporal_encoding_" + temp_enc
-            ]
-            features_input_decoder = features_input_decoder + [
-                "temporal_encoding_" + temp_enc
-            ]
-
-            self.temporal_encodings.append((temp_enc, temporal_encoding))
         # NaN handling
         self.nan_handler = NaNHandler()
         self.nan_handler.fit(self.df_processed)
@@ -179,6 +150,28 @@ class DataSet:
         encoded_features_input_decoder = self._create_encoded_feature_lists(
             features_input_decoder, self.one_hot_encoder
         )
+
+
+        # Add temporal encoding
+        if temporal_encoding_modes is None:
+            temporal_encoding_modes = []
+        for temp_enc in temporal_encoding_modes:
+            self.df_processed, temporal_encoding = preprocessing.add_temporal_encoding(
+                self.df_processed,
+                self.time_col,
+                split_ratio,
+                feature=feature_target,
+                mode=temp_enc,
+            )
+            encoded_features_input_encoder = encoded_features_input_encoder + [
+                "temporal_encoding_" + temp_enc
+            ]
+            encoded_features_input_decoder = encoded_features_input_decoder + [
+                "temporal_encoding_" + temp_enc
+            ]
+
+            self.temporal_encodings.append((temp_enc, temporal_encoding))
+
 
         # scale X-features
         self.df_processed, self.scaler_X = utils.scaling.scale_input_data(
@@ -215,20 +208,16 @@ class DataSet:
             downsampling_ratio_decoder=1,
         )
         if self.model_type == "tcn_tcn":
-            if X_decoder.shape[-1] == 0:
-                X_decoder = np.full(shape=(X_decoder.shape[0],X_decoder.shape[1],1),
-                                    fill_value=1, dtype=float)
             if self.autoregressive:
                 self.X = [X_encoder, X_decoder, y_shifted, y_last]
             else:
+                if X_decoder.shape[-1] == 0:
+                    X_decoder = np.full(
+                        shape=(X_decoder.shape[0], X_decoder.shape[1], 1),
+                        fill_value=1, dtype=float)
                 self.X = [X_encoder, X_decoder]
         else:
             self.X = [X_encoder, X_decoder, y_last]
-
-        # if autoregressiive:
-        #    self.X = [X_encoder, X_decoder, y_last]
-        # else:
-        # self.X = [X_encoder, X_decoder, y_shifted, y_last]
 
         self.y = y
 
@@ -254,24 +243,12 @@ class DataSet:
         input_seq_len: Optional[int] = None,
         output_seq_len: Optional[int] = None,
     ):
-        """Process the raw data from an existing DataSet configuration for inference.
-        Use this method when the dataset was loaded from a config and the data will
+        """Process the raw data from an existing Preprocessor configuration for
+        inference.
+        Use this method when the preprocessor was loaded from a config and the data will
         be used for inference. The processed data that is used to make predictions is
         stored in self.X. No ground truth values of the predictions are extracted.
 
-        This function executed the following steps:
-        1. Remove days from the dataset where MeteoViva is inactive
-        2. Fill NaNs by using the last observed value in the column
-        3. Add temporal encodings as defined in the temporal_encoding_modes parameter
-        4. Perform smoothing as defined in the smoothing_operations parameter
-        5. Scale the features that are defined in features_input_encoder,
-        features_input_decoder and feature_target using a StandardScaler. The
-        scalers for the input features and target feature are saved in the scaler_X
-        and scaler_y attributes, respectively.
-        6. Create sequences for encoder and decoder inputs and the target values. The
-        sequences are stored in the X and y attributes.
-
-        :param config_path: the path to the folder in which the config files are stored
         :param input_seq_len: input (encoder) sequence length
         :param output_seq_len: output (decoder and target) sequence length
 
@@ -282,18 +259,7 @@ class DataSet:
         if output_seq_len is not None:
             self.output_seq_len = output_seq_len
 
-        # Add temporal encoding
         self.df_processed = self.df_raw.copy()
-
-        for temp_enc in self.temporal_encodings:
-            self.df_processed, temporal_encoding = preprocessing.add_temporal_encoding(
-                self.df_processed,
-                time_col=self.time_col,
-                mode=temp_enc[0],
-                encoding=temp_enc[1],
-            )
-            self.features_input_encoder.append("temporal_encoding_" + temp_enc[0])
-            self.features_input_decoder.append("temporal_encoding_" + temp_enc[0])
 
         # NaN handling
         self.nan_handler.transform(self.df_processed, inplace=True)
@@ -301,11 +267,32 @@ class DataSet:
         # one-hot-encoding
         self.one_hot_encoder.transform(self.df_processed, inplace=True)
 
+        # Create lists with new features
+        encoded_features_input_encoder = self._create_encoded_feature_lists(
+            self.features_input_encoder, self.one_hot_encoder
+        )
+        encoded_features_input_decoder = self._create_encoded_feature_lists(
+            self.features_input_decoder, self.one_hot_encoder
+        )
+
+        # Add temporal encoding
+        for temp_enc in self.temporal_encodings:
+            self.df_processed, temporal_encoding = preprocessing.add_temporal_encoding(
+                self.df_processed,
+                time_col=self.time_col,
+                mode=temp_enc[0],
+                encoding=temp_enc[1],
+            )
+            encoded_features_input_encoder.append("temporal_encoding_" + temp_enc[0])
+            encoded_features_input_decoder.append("temporal_encoding_" + temp_enc[0])
+
+
+
         # scale X-features
         self.df_processed, _ = utils.scaling.scale_input_data(
             self.df_processed,
-            self.features_input_encoder,
-            self.features_input_decoder,
+            encoded_features_input_encoder,
+            encoded_features_input_decoder,
             self.feature_target,
             scaler=self.scaler_X,
         )
@@ -327,8 +314,8 @@ class DataSet:
             y_last,
         ) = gen_sequences.extract_sequences_encoder_decoder_inference(
             self.df_processed,
-            self.features_input_encoder,
-            self.features_input_decoder,
+            encoded_features_input_encoder,
+            encoded_features_input_decoder,
             self.feature_target,
             self.input_seq_len,
             self.output_seq_len,
@@ -349,23 +336,11 @@ class DataSet:
         input_seq_len: int,
         output_seq_len: int,
     ):
-        """Process the raw data from an existing DataSet configuration for training.
-        Use this method when the dataset was loaded from a config and a
+        """Process the raw data from an existing Preprocessor configuration for
+        training.
+        Use this method when the preprocessor was loaded from a config and a
         train_test_split is performed afterwards.
 
-        This function executed the following steps:
-        1. Remove days from the dataset where MeteoViva is inactive
-        2. Fill NaNs by using the last observed value in the column
-        3. Add temporal encodings as defined in the temporal_encoding_modes parameter
-        4. Perform smoothing as defined in the smoothing_operations parameter
-        5. Scale the features that are defined in features_input_encoder,
-        features_input_decoder and feature_target using a StandardScaler. The
-        scalers for the input features and target feature are saved in the scaler_X
-        and scaler_y attributes, respectively.
-        6. Create sequences for encoder and decoder inputs and the target values. The
-        sequences are stored in the X and y attributes.
-
-        :param config_path: the path to the folder in which the config files are stored
         :param input_seq_len: input (encoder) sequence length
         :param output_seq_len: output (decoder and target) sequence length
 
@@ -375,17 +350,6 @@ class DataSet:
         self.output_seq_len = output_seq_len
         # Load config
         self.df_processed = self.df_raw.copy()
-        # Add temporal encoding
-
-        for temp_enc in self.temporal_encodings:
-            self.df_processed, temporal_encoding = preprocessing.add_temporal_encoding(
-                self.df_processed,
-                time_col=self.time_col,
-                mode=temp_enc[0],
-                encoding=temp_enc[1],
-            )
-            self.features_input_encoder.append("temporal_encoding_" + temp_enc[0])
-            self.features_input_decoder.append("temporal_encoding_" + temp_enc[0])
 
         # NaN handling
         self.nan_handler.transform(self.df_processed, inplace=True)
@@ -393,11 +357,32 @@ class DataSet:
         # one-hot-encoding
         self.one_hot_encoder.transform(self.df_processed, inplace=True)
 
+        # Create lists with new features
+        encoded_features_input_encoder = self._create_encoded_feature_lists(
+            self.features_input_encoder, self.one_hot_encoder
+        )
+        encoded_features_input_decoder = self._create_encoded_feature_lists(
+            self.features_input_decoder, self.one_hot_encoder
+        )
+
+        # Add temporal encoding
+        for temp_enc in self.temporal_encodings:
+            self.df_processed, temporal_encoding = preprocessing.add_temporal_encoding(
+                self.df_processed,
+                time_col=self.time_col,
+                mode=temp_enc[0],
+                encoding=temp_enc[1],
+            )
+            encoded_features_input_encoder.append("temporal_encoding_" + temp_enc[0])
+            encoded_features_input_decoder.append("temporal_encoding_" + temp_enc[0])
+
+
+
         # scale X-features
         self.df_processed, _ = utils.scaling.scale_input_data(
             self.df_processed,
-            self.features_input_encoder,
-            self.features_input_decoder,
+            encoded_features_input_encoder,
+            encoded_features_input_decoder,
             self.feature_target,
             scaler=self.scaler_X,
         )
@@ -420,8 +405,8 @@ class DataSet:
             y_last,
         ) = gen_sequences.extract_sequences_encoder_decoder_training(
             self.df_processed,
-            self.features_input_encoder,
-            self.features_input_decoder,
+            encoded_features_input_encoder,
+            encoded_features_input_decoder,
             self.feature_target,
             self.input_seq_len,
             self.output_seq_len,
@@ -438,15 +423,15 @@ class DataSet:
             self.X = [X_encoder, X_decoder, y_last]
         self.y = y
 
-    def save_dataset_config(self, save_path):
-        """Save the DataSet configuration including the scalers
+    def save_preprocessor_config(self, save_path):
+        """Save the Preprocessor configuration including the scalers
 
-        :param save_path: directory to save the DataSet configuration
+        :param save_path: directory to save the Preprocessor configuration
         :return:
         """
 
-        # Create and save json of dataset configs
-        config_file_dir = os.path.join(save_path, "dataset_config.json")
+        # Create and save json of preprocessor configs
+        config_file_dir = os.path.join(save_path, "preprocessor_config.json")
         config_dict = {}
         config_dict["features_input_encoder"] = self.features_input_encoder
         config_dict["features_input_decoder"] = self.features_input_decoder
@@ -479,15 +464,15 @@ class DataSet:
         with open(scaler_y_dir, "wb") as f:
             pickle.dump(self.scaler_y, f, pickle.HIGHEST_PROTOCOL)
 
-    def load_dataset_config(self, load_path):
-        """Load a saved DataSet configuration
+    def load_preprocessor_config(self, load_path):
+        """Load a saved Preprocessor configuration
 
         :param load_path: the directory from where to load the configuration
         :return:
         """
 
-        # Load Dataset config
-        config_file_dir = os.path.join(load_path, "dataset_config.json")
+        # Load Preprocessor config
+        config_file_dir = os.path.join(load_path, "preprocessor_config.json")
         config_dict = json.load(open(config_file_dir))
 
         self.features_input_encoder = config_dict["features_input_encoder"]

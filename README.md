@@ -9,8 +9,8 @@ The project is written in Python 3.8 using Tensorflow 2.5.0
 
 ### Models
 Two models exist:
-#### 1. TCN-TCN model. The structure of the TCN-TCN_Model is the following:
-![Model plot](./images/TCN-TCN.jpg)
+#### 1. TCN-TCN model. The structure of the TCN-TCN_Model can be seen below.
+
 
 There are two versions of this model, an autoregressive model and a 
 none-autoregressive model.
@@ -22,7 +22,7 @@ step is added as an additional feature. For example at position x(n+1) the groun
 truth at position x(n) is added as an additional input.
 During inference, the predictions of the previous time step is used instead.
 The autoregressive model can be trained fast in a parallel way. However, inference 
-is slow because the decoder needs to be passed m times when the output lenght is m.
+is slow because the decoder needs to be passed m times when the output length is m.
 
 None-regressive model:
 For the none-regressive model only the input features are used for the decoder that 
@@ -44,14 +44,11 @@ cross attention.
 The last stage is the prediction stage (a block of dense layers) that then
 makes the final prediction.
 
+![Model plot](./images/TCN-TCN.jpg)
+
 #### 2. TCN-RNN model.
-The Encoder is the same as for the TCN-TCN model. The decoder ist 
-replaced with a simple GRU architecture. The decoder works in an autoregressive 
-way such that in addition to the user defined input, also the last prediction is 
-used.
-
-
-
+The architecture of the TCN-RNN model can be seen in the following image:
+![Model plot](./images/TCN-GRU.jpg)
 
 ### TCN blocks
 The TCN blocks use as many layers as needed to get a connection from first timestep's 

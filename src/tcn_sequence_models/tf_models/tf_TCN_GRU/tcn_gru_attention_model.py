@@ -4,7 +4,7 @@ from tcn_sequence_models.tf_models.tf_TCN_GRU.decoder import Decoder
 from tcn_sequence_models.tf_models.tf_TCN_GRU.encoder import Encoder
 
 
-class TCN_GRU_ATTENTION(tf.keras.Model):
+class TCN_GRU(tf.keras.Model):
     def __init__(
         self,
         num_filters: int,
@@ -60,7 +60,7 @@ class TCN_GRU_ATTENTION(tf.keras.Model):
         self.batch_norm_tcn = batch_norm
         self.layer_norm_tcn = layer_norm
 
-        super(TCN_GRU_ATTENTION, self).__init__()
+        super(TCN_GRU, self).__init__()
 
     def build(self, input_shape):
 

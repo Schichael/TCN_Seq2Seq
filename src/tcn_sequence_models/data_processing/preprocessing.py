@@ -1,4 +1,4 @@
-from typing import Optional, List, Union
+from typing import Optional, List
 
 import numpy as np
 import pandas as pd
@@ -18,11 +18,6 @@ class NaNHandler:
     def __init__(
         self,
     ):
-        """
-        :param min_rel_non_nan: minimum relative number of non-NaN occurrences in a
-        column to still be used. If a column has too many NaN values, the whole
-        column is removed.
-        """
         self.median_vals = {}
 
     def fit(self, df: pd.DataFrame):
@@ -73,11 +68,9 @@ class OneHotEncoder:
                 self.new_col_names[col] = self._gen_col_name(col, unique_vals)
             else:
                 rel_occurrences = df[col].dropna().value_counts(normalize=True)
-                print(rel_occurrences)
                 high_occurrences = rel_occurrences[
                     rel_occurrences >= self.min_rel_occurrence
                 ].index.tolist()
-                print(high_occurrences)
                 self.valid_values[col] = high_occurrences
                 self.new_col_names[col] = self._gen_col_name(col, high_occurrences)
 
@@ -294,21 +287,6 @@ def add_temporal_encoding(
 
         df["temporal_encoding_hours"] = df.apply(lambda row: hours_wrapper(row), axis=1)
         return df, means
-
-    # elif mode == "holidays":
-    #    german_holidays = holidays.DE()
-    #
-    #        def holidays_wrapper(row):
-    #            if row["date / time"] in german_holidays:
-    #                return 1
-    #            else:
-    #                return 0
-    #
-    #        df["temporal_encoding_holidays"] = df.apply(
-    #            lambda row: holidays_wrapper(row), axis=1
-    #        )
-    #        return df, [0, 1]
-
     else:
         raise ValueError("mode argument is wrong.")
 

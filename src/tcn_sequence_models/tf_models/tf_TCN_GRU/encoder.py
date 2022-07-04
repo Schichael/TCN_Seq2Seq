@@ -63,18 +63,6 @@ class Encoder(tf.keras.Model):
                     return_sequence=True,
                 )
 
-
-        # Normalization after each TCN stage
-        self.normalization_layers = []
-
-        for i in range(num_stages - 1):
-            if self.layer_norm:
-                self.normalization_layers.append(
-                    keras.layers.LayerNormalization(epsilon=1e-6)
-                )
-            else:
-                self.normalization_layers.append(keras.layers.BatchNormalization())
-
     @tf.function
     def call(self, data_encoder, training=None):
         out = self.tcn(data_encoder, training=training)

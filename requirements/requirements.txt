@@ -1,0 +1,6 @@
+tensorflow==2.5.0
+keras_tuner==1.0.3
+tensorflow_addons==0.13.0
+pandas==1.2.4
+numpy==1.19.2
+scikit-learn==1.1.1

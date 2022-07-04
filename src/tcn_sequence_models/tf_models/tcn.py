@@ -188,13 +188,17 @@ class TCN(Model):
 
     def build(self, input_shape):
         if self.num_layers is None:
+            multiplication_same_padding = 2 if self.padding != "causal" else 1
             self.num_layers = math.ceil(
                 math.log(
-                    (self.max_seq_len - 1)
-                    * (self.dilation_base - 1)
-                    / (self.kernel_size - 1)
-                    / self.num_stages
-                    + 1,
+                    (
+                        (self.max_seq_len - 1)
+                        * (self.dilation_base - 1)
+                        / (self.kernel_size - 1)
+                        / self.num_stages
+                        + 1
+                    )
+                    * multiplication_same_padding,
                     self.dilation_base,
                 )
             )
@@ -219,7 +223,6 @@ class TCN(Model):
                 )
             )
 
-    @tf.function
     def call(self, inputs, training=None):
 
         x = inputs

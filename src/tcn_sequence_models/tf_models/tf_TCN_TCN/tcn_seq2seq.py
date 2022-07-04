@@ -1,7 +1,7 @@
 import tensorflow as tf
 
-from components.decoder import Decoder
-from components.encoder import Encoder
+from .decoder import Decoder
+from .encoder import Encoder
 
 
 class TCN_Seq2Seq(tf.keras.Model):
@@ -20,11 +20,14 @@ class TCN_Seq2Seq(tf.keras.Model):
         kernel_initializer: str = "he_normal",
         batch_norm_tcn: bool = False,
         layer_norm_tcn: bool = False,
+        padding_encoder: str = "same",
+        padding_decoder: str = "causal",
+        autoregressive: bool = False,
     ):
         """Model that uses a TCN as encoder and a TCN based decoder.
 
         To get further information about the encoder and decoder architecture,
-        read the docstrings of encoder.py and decoder.py
+        read the docstrings of those.
 
         :param num_filters: number of filters / channels used. Also defines the
         number of hidden state units of the decoder GRU
@@ -42,6 +45,14 @@ class TCN_Seq2Seq(tf.keras.Model):
         :param kernel_initializer: the mode how the kernels are initialized
         :param batch_norm_tcn: if batch normalization shall be used
         :param layer_norm_tcn: if layer normalization shall be used
+        :param padding_encoder: Padding mode of the encoder. One of ['causal', 'same']
+        :param padding_decoder: Padding mode of the encoder. One of ['causal',
+        'same']. If autoregressive = True, decoder padding will always be causal an
+        the padding_decoder value has no effect.
+        :param autoregressive: whether to use autoregression in the decoder or not.
+        If True, teacher-forcing is applied during training and autoregression is
+        used during inference. If False, groundtruths / predictions of the previous
+        step are not used.
         """
         super(TCN_Seq2Seq, self).__init__()
         self.num_filters = num_filters
@@ -57,22 +68,12 @@ class TCN_Seq2Seq(tf.keras.Model):
         self.kernel_initializer = kernel_initializer
         self.batch_norm_tcn = batch_norm_tcn
         self.layer_norm_tcn = layer_norm_tcn
+        self.padding_encoder = padding_encoder
+        self.padding_decoder = padding_decoder
+        self.autoregressive = autoregressive
 
         self.encoder = None
         self.decoder = None
-        self.output_layers = []
-
-        for i, neurons in enumerate(self.neurons_output):
-            layer = tf.keras.layers.Dense(
-                neurons,
-                activation=self.activation,
-                kernel_initializer=self.kernel_initializer,
-            )
-            self.output_layers.append(layer)
-
-        # last output layer
-        layer = tf.keras.layers.Dense(1)
-        self.output_layers.append(layer)
 
     def build(self, input_shape):
         self.encoder = Encoder(
@@ -86,6 +87,7 @@ class TCN_Seq2Seq(tf.keras.Model):
             batch_norm=self.batch_norm_tcn,
             layer_norm=self.layer_norm_tcn,
             num_layers=self.num_layers_tcn,
+            padding=self.padding_encoder,
         )
 
         self.decoder = Decoder(
@@ -103,11 +105,21 @@ class TCN_Seq2Seq(tf.keras.Model):
             layer_norm=self.layer_norm_tcn,
             output_neurons=self.neurons_output,
             num_layers=self.num_layers_tcn,
+            autoregressive=self.autoregressive,
+            padding=self.padding_decoder,
         )
 
     @tf.function
     def call(self, inputs, training=None):
-        x_encoder, x_decoder = inputs
-        enc_out = self.encoder(x_encoder, training=training)
-        predictions = self.decoder([enc_out, x_decoder], training=training)
+        if self.autoregressive:
+            x_encoder, x_decoder, y_shifted = inputs
+            enc_out = self.encoder(x_encoder, training=training)
+            predictions = self.decoder(
+                [enc_out, x_decoder, y_shifted], training=training
+            )
+        else:
+            x_encoder, x_decoder = inputs
+            enc_out = self.encoder(x_encoder, training=training)
+            predictions = self.decoder([enc_out, x_decoder], training=training)
+
         return predictions

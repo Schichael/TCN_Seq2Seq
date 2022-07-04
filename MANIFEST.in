@@ -1,0 +1,3 @@
+recursive-include requirements *.txt
+recursive-include src *.py
+recursive-include test *.py

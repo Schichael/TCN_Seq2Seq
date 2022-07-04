@@ -1,10 +1,6 @@
 import tensorflow as tf
-
-# from software.backend.tf_models.multi_head_attention import MultiHeadAttention
+from tcn_sequence_models.tf_models.tcn import TCN
 from tensorflow.keras.layers import MultiHeadAttention
-
-# from ..multi_head_attention_autoregressive import MultiHeadAttentionAutoregressive
-from components.tcn import TCN
 
 
 class Decoder(tf.keras.Model):
@@ -24,6 +20,8 @@ class Decoder(tf.keras.Model):
         kernel_initializer: str = "he_normal",
         batch_norm: bool = False,
         layer_norm: bool = False,
+        autoregressive: bool = False,
+        padding: str = "causal",
     ):
         """TCN Decoder stage
         The Decoder architecture is as follows:
@@ -54,6 +52,13 @@ class Decoder(tf.keras.Model):
         :param kernel_initializer: the mode how the kernels are initialized
         :param batch_norm: if batch normalization shall be used
         :param layer_norm: if layer normalization shall be used
+        :param autoregressive: whether to use autoregression in the decoder or not.
+        If True, teacher-forcing is applied during training and autoregression is
+        used during inference. If False, groundtruths / predictions of the previous
+        step are not used.
+        :param padding: Padding mode. One of ['causal', 'same']. If autoregressive =
+        True, decoder padding will always be causal and the padding value has
+        no effect.
         """
         super(Decoder, self).__init__()
         self.max_seq_len = max_seq_len
@@ -70,6 +75,8 @@ class Decoder(tf.keras.Model):
         self.kernel_initializer = kernel_initializer
         self.batch_norm = batch_norm
         self.layer_norm = layer_norm
+        self.autoregressive = autoregressive
+        self.padding = padding if autoregressive is False else "causal"
 
         self.tcn1 = TCN(
             max_seq_len=self.max_seq_len,
@@ -81,7 +88,7 @@ class Decoder(tf.keras.Model):
             activation=self.activation,
             final_activation=self.activation,
             kernel_initializer=self.kernel_initializer,
-            padding="causal",
+            padding=self.padding,
             batch_norm=self.batch_norm,
             layer_norm=self.layer_norm,
             return_sequence=True,
@@ -97,7 +104,7 @@ class Decoder(tf.keras.Model):
             activation=self.activation,
             final_activation=self.activation,
             kernel_initializer=self.kernel_initializer,
-            padding="causal",
+            padding=self.padding,
             batch_norm=self.batch_norm,
             layer_norm=self.layer_norm,
             return_sequence=True,
@@ -126,7 +133,68 @@ class Decoder(tf.keras.Model):
         self.output_layers.append(tf.keras.layers.Dense(1))
 
     @tf.function
-    def call(self, inputs, training=None):
+    def call(self, inputs, training=True):
+        if training:
+            if self.autoregressive:
+                return self._training_call_autoregressive(inputs)
+            else:
+                print("training call")
+                return self._call_none_regressive(inputs, training)
+        else:
+            if self.autoregressive:
+                return self._inference_call_autoregressive(inputs)
+            else:
+                print("inference call")
+                return self._call_none_regressive(inputs, training)
+
+    @tf.function
+    def _training_call_autoregressive(self, inputs):
+        data_encoder, data_decoder, y_shifted = inputs
+        y_shifted = tf.expand_dims(y_shifted, -1)
+        data_decoder = tf.concat([data_decoder, y_shifted], -1)
+        out_tcn = self.tcn1(data_decoder, training=True)
+        out_attention = self.attention(out_tcn, data_encoder, training=True)
+        out = tf.concat([out_tcn, out_attention], -1)
+
+        out = self.tcn2(out, training=True)
+        for layer in self.output_layers:
+            out = layer(out, training=True)
+        return out
+
+    @tf.function
+    def _inference_call_autoregressive(self, inputs):
+        data_encoder, data_decoder, last_y = inputs
+        target_len = data_decoder.shape[1]
+        last_y_reshaped = tf.reshape(last_y, [-1, 1, 1])
+        predictions = None
+
+        data_decoder_curr = tf.concat([data_decoder[:, :1, :], last_y_reshaped], -1)
+        for i in range(target_len):
+            out_tcn = self.tcn1(data_decoder_curr, training=False)
+            out_attention = self.attention(out_tcn, data_encoder, training=False)
+            out = tf.concat([out_tcn, out_attention], -1)
+
+            out = self.tcn2(out, training=False)
+            for layer in self.output_layers:
+                out = layer(out, training=False)
+
+            # Add prediction to the prediction tensor
+            if predictions is None:
+                predictions = out[:, -1, :]
+            else:
+                predictions = tf.concat([predictions, out[:, -1, :]], 1)
+            if i == target_len - 1:
+                continue
+
+            last_predictions = tf.concat([last_y_reshaped, out], axis=1)
+            data_decoder_curr = tf.concat(
+                [data_decoder[:, : i + 2, :], last_predictions], axis=-1
+            )
+
+        return predictions
+
+    @tf.function
+    def _call_none_regressive(self, inputs, training=None):
         data_encoder, data_decoder = inputs
         out_tcn = self.tcn1(data_decoder, training=training)
         out_attention = self.attention(out_tcn, data_encoder, training=training)

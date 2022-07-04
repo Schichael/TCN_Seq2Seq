@@ -21,6 +21,7 @@ class Decoder(tf.keras.Model):
         batch_norm: bool = False,
         layer_norm: bool = False,
         autoregressive: bool = False,
+        padding: str = "causal",
     ):
         """TCN Decoder stage
         The Decoder architecture is as follows:
@@ -55,6 +56,9 @@ class Decoder(tf.keras.Model):
         If True, teacher-forcing is applied during training and autoregression is
         used during inference. If False, groundtruths / predictions of the previous
         step are not used.
+        :param padding: Padding mode. One of ['causal', 'same']. If autoregressive =
+        True, decoder padding will always be causal and the padding value has
+        no effect.
         """
         super(Decoder, self).__init__()
         self.max_seq_len = max_seq_len
@@ -72,6 +76,7 @@ class Decoder(tf.keras.Model):
         self.batch_norm = batch_norm
         self.layer_norm = layer_norm
         self.autoregressive = autoregressive
+        self.padding = padding if autoregressive is False else "causal"
 
         self.tcn1 = TCN(
             max_seq_len=self.max_seq_len,
@@ -83,7 +88,7 @@ class Decoder(tf.keras.Model):
             activation=self.activation,
             final_activation=self.activation,
             kernel_initializer=self.kernel_initializer,
-            padding="causal",
+            padding=self.padding,
             batch_norm=self.batch_norm,
             layer_norm=self.layer_norm,
             return_sequence=True,
@@ -99,7 +104,7 @@ class Decoder(tf.keras.Model):
             activation=self.activation,
             final_activation=self.activation,
             kernel_initializer=self.kernel_initializer,
-            padding="causal",
+            padding=self.padding,
             batch_norm=self.batch_norm,
             layer_norm=self.layer_norm,
             return_sequence=True,

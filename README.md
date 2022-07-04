@@ -7,6 +7,13 @@ hyperparameter tuning. Also, there is functionality for basic data preprocessing
 as well as saving and loading the preprocessing configurations.  
 The project is written in Python 3.8 using Tensorflow 2.5.0
 
+TCN_Seq2Seq is on PyPI, so you can use `pip` to install it.
+
+```bash
+pip install --upgrade pip
+pip install tcn-sequence-models
+```
+
 ### Models
 Two models exist:
 #### 1. TCN-TCN model. The structure of the TCN-TCN_Model can be seen below.

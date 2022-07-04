@@ -245,8 +245,8 @@ class DataSet:
 
     def process_from_config_inference(
         self,
-        input_seq_len: int,
-        output_seq_len: int,
+        input_seq_len: Optional[int] = None,
+        output_seq_len: Optional[int] = None,
     ):
         """Process the raw data from an existing DataSet configuration for inference
 
@@ -268,8 +268,10 @@ class DataSet:
 
         :return:
         """
-        self.input_seq_len = input_seq_len
-        self.output_seq_len = output_seq_len
+        if input_seq_len is not None:
+            self.input_seq_len = input_seq_len
+        if output_seq_len is not None:
+            self.output_seq_len = output_seq_len
 
         # Add temporal encoding
         self.df_processed = self.df_raw.copy()

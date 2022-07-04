@@ -127,18 +127,21 @@ class Decoder(tf.keras.Model):
         # last output layer
         self.output_layers.append(tf.keras.layers.Dense(1))
 
+
     @tf.function
     def call(self, inputs, training=True):
         if training:
             if self.autoregressive:
                 return self._training_call_autoregressive(inputs)
             else:
-                return self._call_none_regressive(inputs)
+                print("training call")
+                return self._call_none_regressive(inputs, training)
         else:
             if self.autoregressive:
                 return self._inference_call_autoregressive(inputs)
             else:
-                return self._call_none_regressive(inputs)
+                print("inference call")
+                return self._call_none_regressive(inputs, training)
 
     @tf.function
     def _training_call_autoregressive(self, inputs):
@@ -164,7 +167,7 @@ class Decoder(tf.keras.Model):
         data_decoder_curr = tf.concat([data_decoder[:, :1, :], last_y_reshaped], -1)
         for i in range(target_len):
             out_tcn = self.tcn1(data_decoder_curr, training=False)
-            out_attention = self.attention(out_tcn, data_encoder, training=True)
+            out_attention = self.attention(out_tcn, data_encoder, training=False)
             out = tf.concat([out_tcn, out_attention], -1)
 
             out = self.tcn2(out, training=False)

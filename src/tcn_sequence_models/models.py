@@ -135,13 +135,16 @@ class BaseModel(ABC):
         :return:
         """
         config_file_dir = os.path.join(load_path, "model_config.json")
+        print(1)
         config_dict = json.load(open(config_file_dir))
+        print(2)
         self.build(**config_dict)
         # Call once to set weights later
-
+        print(3)
         self.model(X, training=is_training_data)
-
+        print(4)
         load_dir = os.path.join(load_path, "model_weights.h5")
+        print(5)
         # model_weights = tf.keras.models.load_model(load_dir)
         self.model.load_weights(load_dir)
 
@@ -429,7 +432,7 @@ class TCN_GRU(BaseModel):
             num_attention_heads=num_attention_heads,
             activation=activation,
             kernel_initializer=kernel_initializer,
-            padding_enc=padding_enc,
+            padding_encoder=padding_enc,
             batch_norm=batch_norm,
             layer_norm=layer_norm,
         )
@@ -498,7 +501,7 @@ class TCN_GRU(BaseModel):
                 num_attention_heads=hp_num_attention_heads,
                 activation=hp_activation,
                 kernel_initializer=hp_kernel_initializer,
-                padding_enc=hp_padding_enc,
+                padding_encoder=hp_padding_enc,
                 batch_norm=hp_batch_norm,
                 layer_norm=hp_layer_norm,
             )

@@ -19,7 +19,7 @@ class TCN_GRU_ATTENTION(tf.keras.Model):
         num_attention_heads: int = 1,
         activation: str = "elu",
         kernel_initializer: str = "he_normal",
-        padding_enc: str = "causal",
+        padding_encoder: str = "causal",
         batch_norm: bool = False,
         layer_norm: bool = False,
     ):
@@ -43,8 +43,7 @@ class TCN_GRU_ATTENTION(tf.keras.Model):
         :param num_attention_heads: number of attention heads
         :param activation: activation function
         :param kernel_initializer: kernel initializer
-        :param padding_enc: padding used for the encoder TCN. Usually "causal" should be
-        used.
+        :param padding_encoder: Padding mode of the encoder. One of ['causal', 'same']
         :param batch_norm: whether to use batch normalization
         :param layer_norm: whether to use layer normalization
         """
@@ -60,7 +59,7 @@ class TCN_GRU_ATTENTION(tf.keras.Model):
         self.num_attention_heads = num_attention_heads
         self.activation = activation
         self.kernel_initializer = kernel_initializer
-        self.padding_enc = padding_enc
+        self.padding_enc = padding_encoder
         self.batch_norm_tcn = batch_norm
         self.layer_norm_tcn = layer_norm
 

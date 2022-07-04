@@ -69,19 +69,7 @@ class TCN_Seq2Seq(tf.keras.Model):
 
         self.encoder = None
         self.decoder = None
-        self.output_layers = []
 
-        for i, neurons in enumerate(self.neurons_output):
-            layer = tf.keras.layers.Dense(
-                neurons,
-                activation=self.activation,
-                kernel_initializer=self.kernel_initializer,
-            )
-            self.output_layers.append(layer)
-
-        # last output layer
-        layer = tf.keras.layers.Dense(1)
-        self.output_layers.append(layer)
 
     def build(self, input_shape):
         self.encoder = Encoder(

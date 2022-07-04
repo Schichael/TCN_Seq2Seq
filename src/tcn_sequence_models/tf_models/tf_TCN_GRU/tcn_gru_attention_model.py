@@ -7,7 +7,6 @@ from tcn_sequence_models.tf_models.tf_TCN_GRU.encoder import Encoder
 class TCN_GRU_ATTENTION(tf.keras.Model):
     def __init__(
         self,
-        num_stages_enc: int,
         num_filters: int,
         kernel_size_enc: int,
         dilation_base: int,
@@ -28,7 +27,6 @@ class TCN_GRU_ATTENTION(tf.keras.Model):
         To get further information about the encoder and decoder architecture,
         read the docstrings of those.
 
-        :param num_stages_enc: number of encoder stages stacked on top of each other
         :param num_filters: number of filters / channels used. Also defines the
         number of hidden state units of the decoder GRU
         :param kernel_size_enc: kernel size of the encoder TCN
@@ -47,7 +45,6 @@ class TCN_GRU_ATTENTION(tf.keras.Model):
         :param batch_norm: whether to use batch normalization
         :param layer_norm: whether to use layer normalization
         """
-        self.num_stages_enc = num_stages_enc
         self.num_filters = num_filters
         self.kernel_size_enc = kernel_size_enc
         self.dilation_base = dilation_base
@@ -69,7 +66,6 @@ class TCN_GRU_ATTENTION(tf.keras.Model):
 
         self.encoder = Encoder(
             max_seq_len=input_shape[0][1],
-            num_stages=self.num_stages_enc,
             num_filters=self.num_filters,
             kernel_size=self.kernel_size_enc,
             dilation_base=self.dilation_base,
@@ -95,8 +91,8 @@ class TCN_GRU_ATTENTION(tf.keras.Model):
             kernel_initializer=self.kernel_initializer,
         )
 
+    @tf.function
     def call(self, inputs, training=None):
-        predictions = None
         # if training is False:
         x_encoder, x_decoder, last_y = inputs
         enc_out = self.encoder(x_encoder, training=training)

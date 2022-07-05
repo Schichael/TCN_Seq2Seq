@@ -16,7 +16,8 @@ pip install tcn-sequence-models
 
 ### Models
 Two models exist:
-#### 1. TCN-TCN model. The structure of the TCN-TCN_Model can be seen below.
+#### 1. TCN-TCN model. 
+The structure of the TCN-TCN_Model can be seen below.
 
 
 There are two versions of this model, an autoregressive model and a 
@@ -37,19 +38,6 @@ the user provides. If the user does not provide any features for the decoder, a
 dummy feature is created with all 1s so that the decoder has some input. Without any 
 input the model would not work. This model is fast during training and inference.
 
-##### Encoder
-The encoder consists of a TCN block. 
-
-##### Decoder
-The Decoder architecture is as follows:  
-First a TCN stage is used to encoder the decoder input data.
-After that multi-head cross attention is applied the the TCN output and the
-encoder output.
-Then another TCN stage is applied. The input of this TCN stage is a
-concatenation of the output of the first Decoder-TCN and the output of the
-cross attention.
-The last stage is the prediction stage (a block of dense layers) that then
-makes the final prediction.
 
 ![Model plot](./images/TCN-TCN.jpg)
 
@@ -65,7 +53,7 @@ picture below shows 'causal' padding.
 ![TCN plot](./images/TCN.jpg)
 
 ### Inputs
-This model expects input sequences for the encoder and optionally for the decoder.
+The models expect input sequences for the encoder and optionally for the decoder.
 
 ### Examples
 For examples, please refer to the notebooks.

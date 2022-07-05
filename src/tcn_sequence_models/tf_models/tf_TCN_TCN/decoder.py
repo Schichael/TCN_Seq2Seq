@@ -141,9 +141,7 @@ class Decoder(tf.keras.Model):
         data_decoder = tf.concat([data_decoder, y_shifted], -1)
         out_tcn = self.tcn1(data_decoder, training=True)
         out_attention = self.attention(out_tcn, data_encoder, training=True)
-        out = self.normalization_layer(
-            out_tcn + out_attention, training=True
-        )
+        out = self.normalization_layer(out_tcn + out_attention, training=True)
         # out = tf.concat([out_tcn, out_attention], -1)
 
         for layer in self.output_layers:
@@ -161,9 +159,7 @@ class Decoder(tf.keras.Model):
         for i in range(target_len):
             out_tcn = self.tcn1(data_decoder_curr, training=False)
             out_attention = self.attention(out_tcn, data_encoder, training=False)
-            out = self.normalization_layer(
-                out_tcn + out_attention, training=False
-            )
+            out = self.normalization_layer(out_tcn + out_attention, training=False)
 
             for layer in self.output_layers:
                 out = layer(out, training=False)
@@ -188,9 +184,7 @@ class Decoder(tf.keras.Model):
         data_encoder, data_decoder = inputs
         out_tcn = self.tcn1(data_decoder, training=training)
         out_attention = self.attention(out_tcn, data_encoder, training=training)
-        out = self.normalization_layer(
-            out_tcn + out_attention, training=training
-        )
+        out = self.normalization_layer(out_tcn + out_attention, training=training)
 
         for layer in self.output_layers:
             out = layer(out, training=training)

@@ -376,6 +376,7 @@ class TCN_GRU(BaseModel):
         """
         super().__init__()
         self.model = None
+        self.hidden_units = None
         self.num_filters = None
         self.kernel_size_enc = None
         self.dilation_base = None
@@ -393,6 +394,7 @@ class TCN_GRU(BaseModel):
 
     def build(
         self,
+        hidden_units: int,
         num_filters: int,
         kernel_size_enc: int,
         dilation_base: int,
@@ -408,6 +410,7 @@ class TCN_GRU(BaseModel):
         batch_norm: bool = False,
         layer_norm: bool = False,
     ):
+        self.hidden_units = hidden_units
         self.num_filters = num_filters
         self.kernel_size_enc = kernel_size_enc
         self.dilation_base = dilation_base
@@ -424,6 +427,7 @@ class TCN_GRU(BaseModel):
         self.layer_norm = layer_norm
 
         self.model = tcn_gru_attention_model.TCN_GRU(
+            hidden_units=hidden_units,
             num_filters=num_filters,
             kernel_size_enc=kernel_size_enc,
             dilation_base=dilation_base,
@@ -447,6 +451,7 @@ class TCN_GRU(BaseModel):
         X_val,
         y_val,
         results_path: str,
+        hidden_units: int,
         num_filters: int,
         kernel_size_enc: int,
         dilation_base: int,
@@ -470,6 +475,7 @@ class TCN_GRU(BaseModel):
         def create_model(
             hp,
         ):
+            hp_hidden_units = hp.Choice("hidden_units", hidden_units)
             hp_num_filters = hp.Choice("num_filters", num_filters)
             hp_kernel_size_enc = hp.Choice("kernel_size_enc", kernel_size_enc)
             hp_dilation_base = hp.Choice("dilation_base", dilation_base)
@@ -490,6 +496,7 @@ class TCN_GRU(BaseModel):
             hp_layer_norm = hp.Choice("layer_norm", layer_norm)
 
             model = tcn_gru_attention_model.TCN_GRU(
+                hidden_units=hp_hidden_units,
                 num_filters=hp_num_filters,
                 kernel_size_enc=hp_kernel_size_enc,
                 dilation_base=hp_dilation_base,
@@ -533,6 +540,7 @@ class TCN_GRU(BaseModel):
         config_file_dir = os.path.join(save_path, "model_config.json")
         model_file_dir = os.path.join(save_path, "model_weights.h5")
         config_dict = {
+            "hidden_units": self.hidden_units,
             "num_filters": self.num_filters,
             "kernel_size_enc": self.kernel_size_enc,
             "dilation_base": self.dilation_base,

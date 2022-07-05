@@ -26,11 +26,9 @@ class Decoder(tf.keras.Model):
         """TCN Decoder stage
         The Decoder architecture is as follows:
         First a TCN stage is used to encoder the decoder input data.
-        After that multi-head cross attention is applied the the TCN output and the
+        After that multi-head cross attention is applied to the TCN output and the
         encoder output.
-        Then another TCN stage is applied. The input of this TCN stage is a
-        concatenation of the output of the first Decoder-TCN and the output of the
-        cross attention.
+        The original TCN output is added to the output of the attention and normalized.
         The last stage is the prediction stage (a block of dense layers) that then
         makes the final prediction.
 
@@ -94,30 +92,21 @@ class Decoder(tf.keras.Model):
             return_sequence=True,
             num_layers=num_layers,
         )
-        self.tcn2 = TCN(
-            max_seq_len=self.max_seq_len,
-            num_stages=2,
-            num_filters=self.num_filters,
-            kernel_size=self.kernel_size,
-            dilation_base=self.dilation_base,
-            dropout_rate=self.dropout_rate,
-            activation=self.activation,
-            final_activation=self.activation,
-            kernel_initializer=self.kernel_initializer,
-            padding=self.padding,
-            batch_norm=self.batch_norm,
-            layer_norm=self.layer_norm,
-            return_sequence=True,
-            num_layers=num_layers,
-        )
 
         # Cross attention
         self.attention = MultiHeadAttention(
             key_dim=self.key_size,
             value_dim=self.value_size,
             num_heads=self.num_attention_heads,
-            output_shape=4,
+            output_shape=self.num_filters,
         )
+
+        # Normalization layer after cross attention
+        if self.layer_norm:
+            self.normalization_layer = tf.keras.layers.LayerNormalization(epsilon=1e-6)
+
+        else:
+            self.normalization_layer = tf.keras.layers.BatchNormalization()
 
         # layers for the final prediction stage
         self.output_layers = []
@@ -138,13 +127,11 @@ class Decoder(tf.keras.Model):
             if self.autoregressive:
                 return self._training_call_autoregressive(inputs)
             else:
-                print("training call")
                 return self._call_none_regressive(inputs, training)
         else:
             if self.autoregressive:
                 return self._inference_call_autoregressive(inputs)
             else:
-                print("inference call")
                 return self._call_none_regressive(inputs, training)
 
     @tf.function
@@ -154,9 +141,9 @@ class Decoder(tf.keras.Model):
         data_decoder = tf.concat([data_decoder, y_shifted], -1)
         out_tcn = self.tcn1(data_decoder, training=True)
         out_attention = self.attention(out_tcn, data_encoder, training=True)
-        out = tf.concat([out_tcn, out_attention], -1)
+        out = self.normalization_layer(out_tcn + out_attention, training=True)
+        # out = tf.concat([out_tcn, out_attention], -1)
 
-        out = self.tcn2(out, training=True)
         for layer in self.output_layers:
             out = layer(out, training=True)
         return out
@@ -172,9 +159,8 @@ class Decoder(tf.keras.Model):
         for i in range(target_len):
             out_tcn = self.tcn1(data_decoder_curr, training=False)
             out_attention = self.attention(out_tcn, data_encoder, training=False)
-            out = tf.concat([out_tcn, out_attention], -1)
+            out = self.normalization_layer(out_tcn + out_attention, training=False)
 
-            out = self.tcn2(out, training=False)
             for layer in self.output_layers:
                 out = layer(out, training=False)
 
@@ -198,9 +184,8 @@ class Decoder(tf.keras.Model):
         data_encoder, data_decoder = inputs
         out_tcn = self.tcn1(data_decoder, training=training)
         out_attention = self.attention(out_tcn, data_encoder, training=training)
-        out = tf.concat([out_tcn, out_attention], -1)
+        out = self.normalization_layer(out_tcn + out_attention, training=training)
 
-        out = self.tcn2(out, training=training)
         for layer in self.output_layers:
             out = layer(out, training=training)
         return out

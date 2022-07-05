@@ -25,9 +25,6 @@ class Decoder(tf.keras.Model):
         which values are trained during training.
         The input of the GRU at timestep t consists of the following:
         - The decoder data as defined by the user for timestep t.
-        - Additional values computed by first applying multi-head self attention
-        using the GRU historic hidden states and then multi-head cross-attention
-        using the output of the self attention and the encoder output.
         - The last prediction of timestep t-1 or if it's the first timestep the last
         true target value.
         To make a prediction, the current hidden state is concatenated with the last
@@ -118,7 +115,7 @@ class Decoder(tf.keras.Model):
         enc_out, data_dec, last_y = inputs
 
         # Put the initial state into the correct form for the GRU and initialize the
-        # hidden_state tensor that will be used for self attention
+        # hidden_state tensor that will be used for self attentionlayer_norm
         initial_state_expanded = tf.expand_dims(self.initial_state, 1)
         hidden_states = tf.tile(initial_state_expanded, [tf.shape(enc_out)[0], 1, 1])
         target_len = data_dec.shape[1]
@@ -129,21 +126,8 @@ class Decoder(tf.keras.Model):
         last_y = tf.reshape(last_y, [-1, 1, 1])
         gru_input = tf.concat([gru_input, last_y], 2)
 
-        # First applications of attention
-        out_self_attention = self.self_attention(
-            hidden_states[:, -1:, :], hidden_states, training=training
-        )
-
-        out_cross_attention = self.cross_attention(
-            out_self_attention, enc_out, training=training
-        )
-        out_cross_attention = self.normalization_layer(
-            out_cross_attention + out_self_attention, training=training
-        )
-
         for i in range(target_len):
             # Add output of cross attention to the GRU inputs
-            gru_input = tf.concat([gru_input, out_cross_attention], axis=-1)
             _, dec_hidden = self.gru(
                 gru_input, initial_state=dec_hidden, training=training
             )

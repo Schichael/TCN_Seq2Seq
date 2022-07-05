@@ -17,6 +17,7 @@ pip install tcn-sequence-models
 ### Models
 Two models exist:
 #### 1. TCN-TCN model. 
+
 The structure of the TCN-TCN_Model can be seen below.
 
 

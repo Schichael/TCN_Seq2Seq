@@ -7,6 +7,7 @@ from tcn_sequence_models.tf_models.tf_TCN_GRU.encoder import Encoder
 class TCN_GRU(tf.keras.Model):
     def __init__(
         self,
+        hidden_units: int,
         num_filters: int,
         kernel_size_enc: int,
         dilation_base: int,
@@ -27,6 +28,7 @@ class TCN_GRU(tf.keras.Model):
         To get further information about the encoder and decoder architecture,
         read the docstrings of those.
 
+        :param hidden_units: Number of GRU hidden units
         :param num_filters: number of filters / channels used. Also defines the
         number of hidden state units of the decoder GRU
         :param kernel_size_enc: kernel size of the encoder TCN
@@ -45,6 +47,7 @@ class TCN_GRU(tf.keras.Model):
         :param batch_norm: whether to use batch normalization
         :param layer_norm: whether to use layer normalization
         """
+        self.hidden_units = hidden_units
         self.num_filters = num_filters
         self.kernel_size_enc = kernel_size_enc
         self.dilation_base = dilation_base
@@ -78,7 +81,7 @@ class TCN_GRU(tf.keras.Model):
         )
 
         self.decoder = Decoder(
-            units=self.num_filters,
+            units=self.hidden_units,
             output_neurons=self.gru_output_neurons,
             key_size=self.key_size,
             value_size=self.value_size,

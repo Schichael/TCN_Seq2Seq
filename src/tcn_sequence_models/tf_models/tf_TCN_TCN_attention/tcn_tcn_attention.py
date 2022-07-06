@@ -4,7 +4,7 @@ from .decoder import Decoder
 from .encoder import Encoder
 
 
-class TCN_Seq2Seq(tf.keras.Model):
+class TCN_TCN_attention(tf.keras.Model):
     def __init__(
         self,
         num_filters: int,
@@ -20,7 +20,7 @@ class TCN_Seq2Seq(tf.keras.Model):
         kernel_initializer: str = "he_normal",
         batch_norm_tcn: bool = False,
         layer_norm_tcn: bool = False,
-        padding_encoder: str = "same",
+        padding_encoder: str = "causal",
         padding_decoder: str = "causal",
         autoregressive: bool = False,
     ):
@@ -47,14 +47,14 @@ class TCN_Seq2Seq(tf.keras.Model):
         :param layer_norm_tcn: if layer normalization shall be used
         :param padding_encoder: Padding mode of the encoder. One of ['causal', 'same']
         :param padding_decoder: Padding mode of the encoder. One of ['causal',
-        'same']. If autoregressive = True, decoder padding will always be causal an
+        'same']. If autoregressive = True, decoder padding will always be causal and
         the padding_decoder value has no effect.
         :param autoregressive: whether to use autoregression in the decoder or not.
         If True, teacher-forcing is applied during training and autoregression is
-        used during inference. If False, groundtruths / predictions of the previous
+        used during inference. If False, ground-truths / predictions of the previous
         step are not used.
         """
-        super(TCN_Seq2Seq, self).__init__()
+        super(TCN_TCN_attention, self).__init__()
         self.num_filters = num_filters
         self.kernel_size = kernel_size
         self.dilation_base = dilation_base
@@ -123,3 +123,5 @@ class TCN_Seq2Seq(tf.keras.Model):
             predictions = self.decoder([enc_out, x_decoder], training=training)
 
         return predictions
+
+

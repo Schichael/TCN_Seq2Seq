@@ -31,7 +31,7 @@ setup(
         "tcn_sequence_models",
         "tcn_sequence_models.data_processing",
         "tcn_sequence_models.tf_models.tf_TCN_GRU",
-        "tcn_sequence_models.tf_models.tf_TCN_TCN",
+        "tcn_sequence_models.tf_models.tf_TCN_TCN_attention",
         "tcn_sequence_models.utils",
     ],
     package_dir={"": "src"},

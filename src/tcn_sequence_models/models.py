@@ -10,7 +10,8 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import EarlyStopping
 
 from tcn_sequence_models.tf_models.tf_TCN_GRU import tcn_gru_attention_model
-from tcn_sequence_models.tf_models.tf_TCN_TCN import tcn_seq2seq
+from tcn_sequence_models.tf_models.tf_TCN_TCN_attention import tcn_tcn_attention
+from tcn_sequence_models.tf_models.tf_TCN_TCN_normal import tcn_tcn_normal
 
 from tcn_sequence_models.utils.scaling import inverse_scale_sequences
 
@@ -142,7 +143,7 @@ class BaseModel(ABC):
         self.model.load_weights(load_dir)
 
 
-class TCN_Seq2Seq(BaseModel):
+class TCN_TCN_Attention(BaseModel):
     def __init__(self):
         """Model with TCN as encoder and TCN as decoder. Refer to the implementation
         of the model for further information.
@@ -202,7 +203,7 @@ class TCN_Seq2Seq(BaseModel):
         self.padding_decoder = padding_decoder
         self.autoregressive = autoregressive
 
-        self.model = tcn_seq2seq.TCN_Seq2Seq(
+        self.model = tcn_tcn_attention.TCN_TCN_attention(
             num_filters=num_filters,
             kernel_size=kernel_size,
             dilation_base=dilation_base,
@@ -291,7 +292,7 @@ class TCN_Seq2Seq(BaseModel):
             hp_padding_encoder = hp.Choice("padding_encoder", padding_encoder)
             hp_padding_decoder = hp.Choice("padding_decoder", padding_decoder)
 
-            model = tcn_seq2seq.TCN_Seq2Seq(
+            model = tcn_tcn_attention.TCN_TCN_attention(
                 num_layers_tcn=None,
                 num_filters=hp_num_filters,
                 kernel_size=hp_kernel_size,
@@ -366,6 +367,203 @@ class TCN_Seq2Seq(BaseModel):
 
         # Save model
         self.model.save_weights(model_file_dir)
+
+
+class TCN_TCN_Normal(BaseModel):
+    def __init__(self):
+        """Model with TCN as encoder and TCN as decoder. Refer to the implementation
+        of the model for further information.
+
+        """
+        super().__init__()
+        self.model = None
+        self.num_filters = None
+        self.kernel_size = None
+        self.dilation_base = None
+        self.dropout_rate = None
+        self.neurons_output = None
+        self.num_layers_tcn = None
+        self.activation = None
+        self.kernel_initializer = None
+        self.batch_norm_tcn = None
+        self.layer_norm_tcn = None
+        self.padding_decoder = None
+        self.autoregressive = False
+
+    def build(
+        self,
+        num_filters: int = 12,
+        kernel_size: int = 3,
+        dilation_base: int = 2,
+        dropout_rate: float = 0.1,
+        neurons_output: List[int] = None,
+        num_layers_tcn: int = None,
+        activation: str = "elu",
+        kernel_initializer: str = "he_normal",
+        batch_norm_tcn: bool = False,
+        layer_norm_tcn: bool = True,
+        padding_encoder: str = "same",
+        padding_decoder: str = "causal",
+        autoregressive: bool = False,
+    ):
+        self.num_filters = num_filters
+        self.kernel_size = kernel_size
+        self.dilation_base = dilation_base
+        self.dropout_rate = dropout_rate
+
+        self.neurons_output = neurons_output if neurons_output is not None else [16]
+        self.num_layers_tcn = num_layers_tcn
+        self.activation = activation
+        self.kernel_initializer = kernel_initializer
+        self.batch_norm_tcn = batch_norm_tcn
+        self.layer_norm_tcn = layer_norm_tcn
+        self.padding_decoder = padding_decoder
+        self.autoregressive = autoregressive
+
+        self.model = tcn_tcn_normal.TCN_TCN_Normal(
+            num_filters=num_filters,
+            kernel_size=kernel_size,
+            dilation_base=dilation_base,
+            dropout_rate=dropout_rate,
+            neurons_output=neurons_output,
+            num_layers_tcn=self.num_layers_tcn,
+            activation=activation,
+            kernel_initializer=kernel_initializer,
+            batch_norm_tcn=batch_norm_tcn,
+            layer_norm_tcn=layer_norm_tcn,
+            padding_decoder=padding_decoder,
+            autoregressive=self.autoregressive,
+        )
+
+    def parameter_search(
+        self,
+        X_train,
+        y_train,
+        X_val,
+        y_val,
+        results_path: str,
+        batch_size: int = 32,
+        patience=5,
+        loss: str = "mse",
+        optimizer=Adam(lr=0.01, decay=1e-3),
+        max_trials: int = 20,
+        executions_per_trial: int = 1,
+        num_filters: Optional[List[int]] = None,
+        kernel_size: Optional[List[int]] = None,
+        dilation_base: Optional[List[int]] = None,
+        dropout_rate: Optional[List[float]] = None,
+        neurons_output: Optional[List[int]] = None,
+        activation: Optional[List[str]] = None,
+        kernel_initializer: Optional[List[str]] = None,
+        batch_norm_tcn: Optional[List[bool]] = None,
+        layer_norm_tcn: Optional[List[bool]] = None,
+        padding_decoder: Optional[List[str]] = None,
+    ):
+        # init parameters
+        if num_filters is None:
+            num_filters = [6]
+        if kernel_size is None:
+            kernel_size = [3]
+        if dilation_base is None:
+            dilation_base = [2]
+        if dropout_rate is None:
+            dropout_rate = [0.1]
+        if neurons_output is None:
+            neurons_output = [32]
+        if activation is None:
+            activation = ["elu"]
+        if kernel_initializer is None:
+            kernel_initializer = ["he_normal"]
+        if batch_norm_tcn is None:
+            batch_norm_tcn = [True]
+        if layer_norm_tcn is None:
+            layer_norm_tcn = [False]
+        if padding_decoder is None:
+            padding_decoder = ["causal"]
+
+        def create_model(
+            hp,
+        ):
+            hp_num_filters = hp.Choice("num_filters", num_filters)
+            hp_kernel_size = hp.Choice("kernel_size", kernel_size)
+            hp_dilation_base = hp.Choice("dilation_base", dilation_base)
+            hp_dropout_rate = hp.Choice("dropout_rate", dropout_rate)
+            hp_neurons_output = hp.Choice("neurons_output", neurons_output)
+            hp_activation = hp.Choice("activation", activation)
+            hp_kernel_initializer = hp.Choice("kernel_initializer", kernel_initializer)
+            hp_batch_norm_tcn = hp.Choice("batch_norm_tcn", batch_norm_tcn)
+            hp_layer_norm_tcn = hp.Choice("layer_norm_tcn", layer_norm_tcn)
+            hp_padding_decoder = hp.Choice("padding_decoder", padding_decoder)
+
+            model = tcn_tcn_normal.TCN_TCN_Normal(
+                num_layers_tcn=None,
+                num_filters=hp_num_filters,
+                kernel_size=hp_kernel_size,
+                dilation_base=hp_dilation_base,
+                dropout_rate=hp_dropout_rate,
+                neurons_output=[hp_neurons_output],
+                activation=hp_activation,
+                kernel_initializer=hp_kernel_initializer,
+                batch_norm_tcn=hp_batch_norm_tcn,
+                layer_norm_tcn=hp_layer_norm_tcn,
+                autoregressive=self.autoregressive,
+                padding_decoder=hp_padding_decoder,
+            )
+
+            model.compile(loss=loss, optimizer=optimizer)
+            return model
+
+        tuner = BayesianOptimization(
+            create_model,
+            objective="val_loss",
+            max_trials=max_trials,
+            executions_per_trial=executions_per_trial,
+            directory=results_path,
+        )
+
+        cb_early_stopping = EarlyStopping(patience=patience, restore_best_weights=True)
+
+        tuner.search(
+            X_train,
+            y_train,
+            epochs=50,
+            batch_size=batch_size,
+            validation_data=(X_val, y_val),
+            callbacks=[cb_early_stopping],
+            shuffle=True,
+        )
+
+    def save_model(self, save_path):
+        """Create and save json file of model configs
+
+        :param save_path: path to save the config
+        :return:
+        """
+        # Create and save json of model configs
+
+        config_file_dir = os.path.join(save_path, "model_config.json")
+        model_file_dir = os.path.join(save_path, "model_weights.h5")
+        config_dict = {
+            "num_filters": self.num_filters,
+            "num_layers_tcn": self.num_layers_tcn,
+            "kernel_size": self.kernel_size,
+            "dilation_base": self.dilation_base,
+            "dropout_rate": self.dropout_rate,
+            "neurons_output": self.neurons_output,
+            "activation": self.activation,
+            "kernel_initializer": self.kernel_initializer,
+            "batch_norm_tcn": self.batch_norm_tcn,
+            "layer_norm_tcn": self.layer_norm_tcn,
+            "autoregressive": self.autoregressive,
+            "padding_decoder": self.padding_decoder,
+        }
+
+        json.dump(config_dict, open(config_file_dir, "w"))
+
+        # Save model
+        self.model.save_weights(model_file_dir)
+
+
 
 
 class TCN_GRU(BaseModel):

@@ -1,5 +1,6 @@
 # TCN_Seq2Seq
-Implementation of different TCN based Sequence-to-Sequence models. 
+Implementation of different TCN based Sequence-to-Sequence models for timeseries 
+forecasting. 
 
 The project includes wrapper classes for the models that add some additional 
 features like simple saving and loading of the trained models and automated 
@@ -15,14 +16,24 @@ pip install tcn-sequence-models
 ```
 
 ### Models
-Two models exist:
-#### 1. TCN-TCN model. 
+Three models exist:
+#### 1. TCN-TCN model with attention. 
 
-The structure of the TCN-TCN_Model can be seen below.
+The structure of the TCN-TCN model with attention can be seen below.
+
+![Model plot](./images/TCN-TCN_attention.jpg)
+
+
+#### 2. "Normal" TCN-TCN model without attention. 
+
+The structure of the TCN-TCN model without attention can be seen below.
+
 
 
 There are two versions of this model, an autoregressive model and a 
 none-autoregressive model.
+
+
 
 Autoregressive model:
 For training, teacher-forcing is used for the decoder. In addition to other decoder 
@@ -40,18 +51,27 @@ dummy feature is created with all 1s so that the decoder has some input. Without
 input the model would not work. This model is fast during training and inference.
 
 
-![Model plot](./images/TCN-TCN.jpg)
 
-#### 2. TCN-RNN model.
+
+#### 3. TCN-RNN model.
 The architecture of the TCN-RNN model can be seen in the following image:
 ![Model plot](./images/TCN-GRU.jpg)
 
 ### TCN blocks
 The TCN blocks use as many layers as needed to get a connection from first timestep's 
-input to last timestep's output. The padding mode can be set by the user. Only for 
-the decoder of the autoregressive TCN-TCN model padding will always be causal. The 
-picture below shows 'causal' padding.
+input to last timestep's output. The padding mode in the models can be set by the user.
+Only if set to 'causal', the blocks are "temporal", i.e. a timestep only gets 
+information from the previous timesteps. If set to 'same' or 'valid', also information from 
+future timesteps are used which might improve the predictions. 
+
+The encoder of the "normal" TCN-TCN model will always have "causal" padding since 
+only the last output of the encoder is used.
+Also, for the decoder of the TCN-TCN models in the autoregressive mode, padding will 
+always be causal. The picture below shows the TCN block with 'causal' padding.
 ![TCN plot](./images/TCN.jpg)
+
+One TCN cell is structured like this:
+
 
 ### Inputs
 The models expect input sequences for the encoder and optionally for the decoder.

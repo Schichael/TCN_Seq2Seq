@@ -21,14 +21,14 @@ Three models exist:
 
 The structure of the TCN-TCN model with attention can be seen below.
 
-<img src="./images/TCN-TCN_attention.jpg" alt="drawing" height="500">
+<img src="./images/TCN-TCN_attention.jpg" alt="drawing" height="400">
 
 
 #### 2. "Normal" TCN-TCN model without attention. 
 
-The structure of the TCN-TCN model without attention can be seen below.
+The structure of the "normal" TCN-TCN model without attention can be seen below.
 
-<img src="./images/TCN-TCN_normal.jpg" alt="drawing" height="500">
+<img src="./images/TCN-TCN_normal.jpg" alt="drawing" height="400">
 
 
 There are two versions of the TCN-TCN models, an autoregressive model and a 

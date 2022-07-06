@@ -21,19 +21,18 @@ Three models exist:
 
 The structure of the TCN-TCN model with attention can be seen below.
 
-![Model plot](./images/TCN-TCN_attention.jpg)
+<img src="./images/TCN-TCN_attention.jpg" alt="drawing" height="500">
 
 
 #### 2. "Normal" TCN-TCN model without attention. 
 
 The structure of the TCN-TCN model without attention can be seen below.
 
+<img src="./images/TCN-TCN_normal.jpg" alt="drawing" height="500">
 
 
-There are two versions of this model, an autoregressive model and a 
+There are two versions of the TCN-TCN models, an autoregressive model and a 
 none-autoregressive model.
-
-
 
 Autoregressive model:
 For training, teacher-forcing is used for the decoder. In addition to other decoder 
@@ -55,7 +54,8 @@ input the model would not work. This model is fast during training and inference
 
 #### 3. TCN-RNN model.
 The architecture of the TCN-RNN model can be seen in the following image:
-![Model plot](./images/TCN-GRU.jpg)
+
+<img src="./images/TCN-GRU.jpg" alt="drawing" height="500">
 
 ### TCN blocks
 The TCN blocks use as many layers as needed to get a connection from first timestep's 
@@ -68,9 +68,12 @@ The encoder of the "normal" TCN-TCN model will always have "causal" padding sinc
 only the last output of the encoder is used.
 Also, for the decoder of the TCN-TCN models in the autoregressive mode, padding will 
 always be causal. The picture below shows the TCN block with 'causal' padding.
-![TCN plot](./images/TCN.jpg)
+<img src="./images/TCN.jpg" alt="drawing" height="300">
 
-One TCN cell is structured like this:
+One TCN cell (residual block) is structured like this (when choosing ReLu as 
+activation function):
+
+<img src="./images/residual_block_relu.jpg" alt="drawing" height="400">
 
 
 ### Inputs

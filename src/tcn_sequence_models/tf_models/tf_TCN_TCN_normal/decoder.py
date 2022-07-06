@@ -112,7 +112,7 @@ class Decoder(tf.keras.Model):
     def _call_none_regressive(self, inputs, training=None):
         data_encoder, data_decoder = inputs
         out_tcn = self.tcn1(data_decoder, training=training)
-        encoder_last = data_encoder[:,-1:,:]
+        encoder_last = data_encoder[:, -1:, :]
         encoder_last_tiled = tf.tile(encoder_last, [1, data_decoder.shape[1], 1])
         out = tf.concat([out_tcn, encoder_last_tiled], axis=-1)
         for layer in self.output_layers:
@@ -145,7 +145,9 @@ class Decoder(tf.keras.Model):
         for i in range(target_len):
             out_tcn = self.tcn1(data_decoder_curr, training=False)
             encoder_last = data_encoder[:, -1:, :]
-            encoder_last_tiled = tf.tile(encoder_last, [1, data_decoder_curr.shape[1], 1])
+            encoder_last_tiled = tf.tile(
+                encoder_last, [1, data_decoder_curr.shape[1], 1]
+            )
             out = tf.concat([out_tcn, encoder_last_tiled], axis=-1)
 
             for layer in self.output_layers:

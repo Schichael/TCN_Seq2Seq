@@ -564,8 +564,6 @@ class TCN_TCN_Normal(BaseModel):
         self.model.save_weights(model_file_dir)
 
 
-
-
 class TCN_GRU(BaseModel):
     def __init__(self):
         """Model with TCN as encoder and GRU as decoder. Refer to the implementation

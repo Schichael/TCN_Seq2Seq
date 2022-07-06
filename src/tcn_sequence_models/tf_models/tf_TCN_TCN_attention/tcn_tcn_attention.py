@@ -123,5 +123,3 @@ class TCN_TCN_attention(tf.keras.Model):
             predictions = self.decoder([enc_out, x_decoder], training=training)
 
         return predictions
-
-

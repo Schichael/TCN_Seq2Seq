@@ -24,7 +24,7 @@ setup(
     author="Michael Schulten",
     author_email="michael.schulten@yahoo.de",
     url="https://github.com/Schichael/TCN_Seq2Seq",
-    description="TCN based models for sequence forecasting and predictions.",
+    description="TCN based models for time series forecasting.",
     long_description=long_description,
     long_description_content_type="text/markdown",
     packages=[

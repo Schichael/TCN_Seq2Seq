@@ -1,6 +1,6 @@
 # TCN_Seq2Seq
 Implementation of different TCN based Sequence-to-Sequence models for timeseries 
-forecasting. 
+forecasting. Currently, only works for a numerical class label.
 
 The project includes wrapper classes for the models that add some additional 
 features like simple saving and loading of the trained models and automated 

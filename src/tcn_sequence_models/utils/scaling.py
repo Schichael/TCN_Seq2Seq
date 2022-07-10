@@ -1,5 +1,5 @@
-from sklearn.preprocessing import StandardScaler
 import numpy as np
+from sklearn.preprocessing import StandardScaler
 
 
 def scale(df, columns, train_ratio=1.0, scaler=None):

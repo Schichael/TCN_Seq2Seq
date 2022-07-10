@@ -1,19 +1,19 @@
 import json
 import os
-from abc import ABC, abstractmethod
-from typing import List, Optional
+from abc import ABC
+from abc import abstractmethod
+from tcn_sequence_models.tf_models.tf_TCN_GRU import tcn_gru_attention_model
+from tcn_sequence_models.tf_models.tf_TCN_TCN_attention import tcn_tcn_attention
+from tcn_sequence_models.tf_models.tf_TCN_TCN_normal import tcn_tcn_normal
+from tcn_sequence_models.utils.scaling import inverse_scale_sequences
+from typing import List
+from typing import Optional
 
 import numpy as np
 from keras_tuner import BayesianOptimization
 from sklearn import metrics
-from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import EarlyStopping
-
-from tcn_sequence_models.tf_models.tf_TCN_GRU import tcn_gru_attention_model
-from tcn_sequence_models.tf_models.tf_TCN_TCN_attention import tcn_tcn_attention
-from tcn_sequence_models.tf_models.tf_TCN_TCN_normal import tcn_tcn_normal
-
-from tcn_sequence_models.utils.scaling import inverse_scale_sequences
+from tensorflow.keras.optimizers import Adam
 
 
 class BaseModel(ABC):

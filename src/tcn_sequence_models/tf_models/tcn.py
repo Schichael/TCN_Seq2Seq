@@ -188,7 +188,6 @@ class TCN(Model):
 
     def build(self, input_shape):
         if self.num_layers is None:
-            multiplication_same_padding = 2 if self.padding != "causal" else 1
             self.num_layers = math.ceil(
                 math.log(
                     (
@@ -197,8 +196,7 @@ class TCN(Model):
                         / (self.kernel_size - 1)
                         / self.num_stages
                         + 1
-                    )
-                    * multiplication_same_padding,
+                    ),
                     self.dilation_base,
                 )
             )

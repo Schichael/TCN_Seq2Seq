@@ -1,17 +1,17 @@
 import json
+import os
 import pickle
-from typing import Optional, List
+import sys
+import tcn_sequence_models.utils.train_test_split
+from pathlib import Path
+from tcn_sequence_models import utils
+from tcn_sequence_models.data_processing.preprocessing import NaNHandler
+from tcn_sequence_models.data_processing.preprocessing import OneHotEncoder
+from typing import List
+from typing import Optional
 
 import numpy as np
 import pandas as pd
-import os
-
-import sys
-from pathlib import Path
-
-import tcn_sequence_models.utils.train_test_split
-from tcn_sequence_models import utils
-from tcn_sequence_models.data_processing.preprocessing import OneHotEncoder, NaNHandler
 
 sys.path.insert(0, str(Path().cwd() / Path("../..")) + str(Path("/")))
 sys.path.insert(0, str(Path().cwd() / Path("../../..")) + str(Path("/")))

@@ -1,14 +1,14 @@
 import math
+
 import tensorflow as tf
-from tensorflow.keras import layers, Model
-from tensorflow.keras.layers import (
-    Conv1D,
-    Activation,
-    LayerNormalization,
-    BatchNormalization,
-    Dropout,
-    Lambda,
-)
+from tensorflow.keras import layers
+from tensorflow.keras import Model
+from tensorflow.keras.layers import Activation
+from tensorflow.keras.layers import BatchNormalization
+from tensorflow.keras.layers import Conv1D
+from tensorflow.keras.layers import Dropout
+from tensorflow.keras.layers import Lambda
+from tensorflow.keras.layers import LayerNormalization
 from tensorflow_addons.layers import WeightNormalization
 
 
@@ -188,7 +188,6 @@ class TCN(Model):
 
     def build(self, input_shape):
         if self.num_layers is None:
-            multiplication_same_padding = 2 if self.padding != "causal" else 1
             self.num_layers = math.ceil(
                 math.log(
                     (
@@ -197,8 +196,7 @@ class TCN(Model):
                         / (self.kernel_size - 1)
                         / self.num_stages
                         + 1
-                    )
-                    * multiplication_same_padding,
+                    ),
                     self.dilation_base,
                 )
             )

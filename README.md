@@ -60,8 +60,8 @@ The architecture of the TCN-RNN model can be seen in the following image:
 ### TCN blocks
 The TCN blocks use as many layers as needed to get a connection from first timestep's 
 input to last timestep's output. The padding mode in the models can be set by the user.
-Only if set to 'causal', the blocks are "temporal", i.e. a timestep only gets 
-information from the previous timesteps. If set to 'same' or 'valid', also information from 
+If padding is set to 'causal', a timestep only gets information from the previous 
+timesteps. If set to 'same' or 'valid', also information from 
 future timesteps are used which might improve the predictions. 
 
 The encoder of the "normal" TCN-TCN model will always have "causal" padding since 
